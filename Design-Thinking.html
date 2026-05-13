@@ -1,0 +1,3086 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Discovery · My first app</title>
+<link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+<!-- mmp (the mind-map engine behind mindmapp / TeamMapper) requires D3 v5 as a global -->
+<script src="https://unpkg.com/d3@5.16.0/dist/d3.min.js"></script>
+<script src="https://unpkg.com/mmp@0.2.20/build/mmp.js"></script>
+<style>
+  :root{
+    --orange:#F57C3A; --orange-soft:#FFF3EC; --orange-border:#F9B489;
+    --ink:#1E2A3B; --muted:#6B7A8F; --bg:#F5F8FC; --card:#FFFFFF;
+    --border:#E5ECF2; --cyan:#3BB8E0; --indigo:#3D3DDB;
+    /* Per-step active color — Guide pill mirrors this value. When Plan,
+       Design, Build, Test, Launch screens ship, each sets its own hue. */
+    --active-color: var(--orange);
+  }
+  .app-shell[data-step="empathize"]{ --active-color:#F57C3A; }
+  .app-shell[data-step="define"]   { --active-color:#FF6B7A; }
+  .app-shell[data-step="ideate"]   { --active-color:#22C55E; }
+  .app-shell[data-step="prototype"]{ --active-color:#3B82F6; }
+  .app-shell[data-step="test"]     { --active-color:#A855F7; }
+  .app-shell[data-step="launch"]   { --active-color:#EC4899; }
+  .app-shell[data-step="define"]    .journey-step.active { background:#FF6B7A; border-color:#FF6B7A }
+  .app-shell[data-step="ideate"]    .journey-step.active { background:#22C55E; border-color:#22C55E }
+  .app-shell[data-step="prototype"] .journey-step.active { background:#3B82F6; border-color:#3B82F6 }
+  .app-shell[data-step="test"]      .journey-step.active { background:#A855F7; border-color:#A855F7 }
+  .app-shell[data-step="launch"]    .journey-step.active { background:#EC4899; border-color:#EC4899 }
+  .app-shell[data-step="empathize"] .guide-block { background:#FEF3EE }
+  .app-shell[data-step="empathize"] .guide-block h4 { color:#F57C3A }
+  .app-shell[data-step="define"]    .guide-block { background:#FFEEF0 }
+  .app-shell[data-step="define"]    .guide-block h4 { color:#FF6B7A }
+  .app-shell[data-step="ideate"]    .guide-block { background:#E8FBEE }
+  .app-shell[data-step="ideate"]    .guide-block h4 { color:#22C55E }
+  .app-shell[data-step="prototype"] .guide-block { background:#EAF2FF }
+  .app-shell[data-step="prototype"] .guide-block h4 { color:#3B82F6 }
+  .app-shell[data-step="test"]    .guide-block { background:#F5EAFE }
+  .app-shell[data-step="test"]    .guide-block h4 { color:#A855F7 }
+  .app-shell[data-step="launch"]  .guide-block { background:#FCE7F3 }
+  .app-shell[data-step="launch"]  .guide-block h4 { color:#EC4899 }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Mona Sans',system-ui,-apple-system,sans-serif}
+  button{font:inherit}
+
+  .app-shell{min-height:100vh;display:flex;flex-direction:column}
+
+  /* TOP BAR */
+  .top-bar{display:flex;align-items:center;gap:16px;padding:14px 20px;background:#fff;border-bottom:1px solid var(--border)}
+  .icon-btn{background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:6px;border-radius:8px}
+  .icon-btn:hover{background:#f0f4f9}
+  .circle-btn{width:34px;height:34px;border-radius:50%;border:1.5px dashed #c9d2dd}
+  .app-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;min-width:160px}
+  /* Chevron journey */
+  .journey{flex:1;display:flex;justify-content:center;gap:0;padding:4px 0}
+  .journey-step{
+    position:relative;padding:11px 30px 11px 36px;background:#fff;border:1px solid #DEE7F0;
+    color:var(--ink);cursor:pointer;font-size:14px;font-weight:500;letter-spacing:.1px;
+    clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%);
+    margin-left:-14px;
+    transition:background .25s cubic-bezier(.4,0,.2,1),transform .25s cubic-bezier(.4,0,.2,1),color .2s,box-shadow .25s;
+    overflow:hidden
+  }
+  .journey-step::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.6) 50%,transparent 100%);
+    transform:translateX(-100%);transition:transform .6s cubic-bezier(.4,0,.2,1);
+    pointer-events:none;opacity:0
+  }
+  .journey-step:first-child{margin-left:0;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%)}
+  .journey-step.active{
+    background:var(--orange);color:#fff;border-color:var(--orange);font-weight:600;
+    box-shadow:0 4px 14px rgba(245,124,58,.35);
+    transform:translateY(-1px) scale(1.04);
+    animation:chevronPulse .5s cubic-bezier(.34,1.56,.64,1)
+  }
+  .journey-step.active::before{opacity:1;transform:translateX(100%)}
+  .journey-step:hover:not(.active){
+    background:#F0F7FF;color:#1E2A3B;
+    transform:translateY(-1px);
+    box-shadow:0 2px 10px rgba(99,153,219,.18);
+    border-color:#C5DCF0
+  }
+  .journey-step:hover:not(.active)::before{opacity:.5;transform:translateX(100%)}
+  @keyframes chevronPulse{
+    0%{transform:translateY(-1px) scale(.98)}
+    50%{transform:translateY(-1px) scale(1.07)}
+    100%{transform:translateY(-1px) scale(1.04)}
+  }
+  /* Match active stage colors with shadow tints */
+  .app-shell[data-step="empathize"] .journey-step.active{box-shadow:0 4px 14px rgba(245,124,58,.35)}
+  .app-shell[data-step="define"]    .journey-step.active{box-shadow:0 4px 14px rgba(255,107,122,.35)}
+  .app-shell[data-step="ideate"]    .journey-step.active{box-shadow:0 4px 14px rgba(34,197,94,.35)}
+  .app-shell[data-step="prototype"] .journey-step.active{box-shadow:0 4px 14px rgba(59,130,246,.35)}
+  .app-shell[data-step="test"]    .journey-step.active{box-shadow:0 4px 14px rgba(168,85,247,.35)}
+  .app-shell[data-step="launch"]  .journey-step.active{box-shadow:0 4px 14px rgba(236,72,153,.35)}
+
+  .header-actions{display:flex;align-items:center;gap:10px}
+  .color-dots{display:flex}
+  .dot{width:24px;height:24px;border-radius:50%;border:2px solid #fff}
+  .dot-yellow{background:#FCE9A1}
+  .dot-green{background:#C6F0C4;margin-left:-10px}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--indigo)}
+
+  /* INFO BAR */
+  .info-bar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;position:relative}
+  /* Prototype tabs: dead-centered in info-bar regardless of left/right content widths */
+  .info-bar .proto-tabs-inline{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1}
+  .info-left{display:flex;align-items:center;gap:12px;font-size:14px}
+  .info-left p{margin:0}
+  /* Guide button — flat solid color per stage with subtle hover */
+  .guide-pill{
+    display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;
+    color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.2px;
+    transition:transform .15s,box-shadow .15s,filter .15s;
+    position:relative
+  }
+  .guide-pill:hover{transform:translateY(-1px);filter:brightness(1.08)}
+  .guide-pill:active{transform:translateY(0)}
+  /* Stage-specific flat colors */
+  .app-shell[data-step="empathize"] .guide-pill{background:#F57C3A;box-shadow:0 2px 8px rgba(245,124,58,.30)}
+  .app-shell[data-step="define"]    .guide-pill{background:#FF6B7A;box-shadow:0 2px 8px rgba(255,107,122,.30)}
+  .app-shell[data-step="ideate"]    .guide-pill{background:#22C55E;box-shadow:0 2px 8px rgba(34,197,94,.30)}
+  .app-shell[data-step="prototype"] .guide-pill{background:#3B82F6;box-shadow:0 2px 8px rgba(59,130,246,.30)}
+  .app-shell[data-step="test"]      .guide-pill{background:#A855F7;box-shadow:0 2px 8px rgba(168,85,247,.30)}
+  .app-shell[data-step="launch"]    .guide-pill{background:#EC4899;box-shadow:0 2px 8px rgba(236,72,153,.30)}
+  .pill-dot{
+    width:9px;height:9px;border-radius:50%;background:#fff;
+    box-shadow:0 0 0 0 rgba(255,255,255,.7);
+    animation:pillDotPulse 2s ease-in-out infinite
+  }
+  @keyframes pillDotPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.7)}
+    50%    {box-shadow:0 0 0 6px rgba(255,255,255,0)}
+  }
+
+  /* LAYOUT — main is always 1 column; Guide floats as a fixed overlay
+     above the top bar (see .guide-panel below). */
+  .layout{flex:1;display:grid;grid-template-columns:1fr}
+  .main{padding:24px 28px;display:flex;flex-direction:column;gap:14px;max-width:1200px;width:100%;margin:0 auto}
+
+  /* ACCORDION */
+  .accordion{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+  .accordion.open{border-color:var(--orange);box-shadow:0 1px 0 var(--orange) inset}
+  .accordion.open .accordion-header{background:var(--orange-soft)}
+  .accordion-header{width:100%;display:flex;align-items:center;gap:14px;padding:20px 24px;background:#fff;border:none;cursor:pointer;text-align:left}
+  .accordion-title{font-size:22px;font-weight:700;color:var(--ink)}
+  .accordion.open .accordion-title{color:var(--orange)}
+  .accordion-dot{width:8px;height:8px;border-radius:50%;background:var(--orange)}
+  .accordion-desc{flex:1;color:var(--ink);font-size:14px}
+  .accordion-toggle{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#1E2A3B;transition:background .2s}
+  .accordion-toggle.active{background:var(--orange)}
+  .accordion-body{padding:20px 24px 24px}
+
+  .cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:900px){.cards-grid{grid-template-columns:1fr}}
+  .sub-card{border:1px solid var(--border);border-radius:10px;padding:18px;background:#fff}
+  .sub-card h3{margin:0 0 10px;font-size:15px;font-weight:700;white-space:pre-line;line-height:1.45}
+  .sub-card .optional{color:var(--muted);font-weight:500}
+  .sub-card ul{margin:0 0 14px;padding-left:18px;font-size:13px}
+  .sub-card li{margin-bottom:4px}
+  .sub-card textarea{width:100%;min-height:120px;padding:12px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;color:var(--ink);resize:vertical}
+  .sub-card textarea::placeholder{color:#A8B3C2}
+  .sub-card textarea:focus{outline:2px solid var(--orange);outline-offset:-1px;border-color:var(--orange)}
+  .sub-card.span-2{grid-column:1 / -1}
+  .sub-card.ai-assist{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;padding:40px 24px;min-height:220px}
+  .sub-card.ai-assist h3{font-size:20px;max-width:360px;margin:0}
+  .ai-btn{display:inline-flex;align-items:center;gap:10px;padding:14px 28px;background:#1a47e0;color:#fff;border:none;border-radius:10px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(26,71,224,.25)}
+  .ai-btn:hover{background:#1538b8}
+
+  /* MINDMAP CARD */
+  .sub-card.mindmap-card{padding:0;overflow:hidden;display:flex;flex-direction:column}
+  .mindmap-header{padding:20px 24px 16px}
+  .mindmap-header h3{margin:0 0 8px;font-size:15px;font-weight:700}
+  .mindmap-header ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink)}
+  .mindmap-container{height:600px;width:100%;background:#EDF3FF;border-top:1px solid var(--border);position:relative;overflow:hidden}
+  .mindmap-container .map-canvas{height:100%;width:100%;position:relative}
+
+  /* Floating mmp controls (TeamMapper-style overlay) */
+  .mmp-btn{width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(30,42,59,.12);transition:transform .1s,box-shadow .15s;color:#1E2A3B;padding:0}
+  .mmp-btn:hover{box-shadow:0 4px 12px rgba(30,42,59,.18);transform:translateY(-1px)}
+  .mmp-btn.green{background:#22C55E;color:#fff}
+  .mmp-btn.green:hover{background:#16A34A}
+  .mmp-btn svg{pointer-events:none}
+
+  .mmp-tl{position:absolute;top:14px;left:14px;display:flex;gap:10px;z-index:5}
+
+  .mmp-right{position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:5}
+  .mmp-swatch{position:relative;width:28px;height:28px;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 0 0 1.5px #C5D3E5, 0 2px 8px rgba(30,42,59,.18);transition:transform .1s, box-shadow .15s;display:block;overflow:visible;background:#fff}
+  .mmp-swatch:hover{transform:scale(1.12);box-shadow:0 0 0 1.5px #1E2A3B, 0 3px 10px rgba(30,42,59,.25)}
+  .mmp-swatch-dot{width:100%;height:100%;border-radius:50%;box-sizing:border-box;display:block}
+  .mmp-swatch input[type=color]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;padding:0;background:none}
+
+  /* Dark pill tooltip shown on hover over any .mmp-tip element */
+  .mmp-tip{position:relative}
+  .mmp-tip[data-tip]:hover::after{content:attr(data-tip);position:absolute;right:calc(100% + 12px);top:50%;transform:translateY(-50%);background:#3A4455;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.15);pointer-events:none}
+  .mmp-tip[data-tip]:hover::before{content:"";position:absolute;right:calc(100% + 2px);top:50%;transform:translateY(-50%);border:6px solid transparent;border-left-color:#3A4455;z-index:20;pointer-events:none}
+
+  .mmp-slider{position:absolute;left:22px;top:50%;transform:translateY(-50%);height:180px;width:20px;display:flex;align-items:center;justify-content:center;z-index:5;cursor:pointer}
+  .mmp-slider-track{width:2px;height:100%;background:#1E2A3B;border-radius:2px;position:relative}
+  .mmp-slider-thumb{width:12px;height:12px;border-radius:50%;background:#1E2A3B;position:absolute;left:50%;transform:translate(-50%,-50%);top:50%;cursor:grab;transition:top .08s}
+  .mmp-slider-thumb:active{cursor:grabbing}
+
+  .mmp-bottom{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:#fff;padding:6px 10px;border-radius:12px;box-shadow:0 3px 10px rgba(30,42,59,.12);z-index:5}
+  .mmp-bottom button{width:34px;height:34px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#1E2A3B;font:inherit;font-size:14px;font-weight:700;padding:0}
+  .mmp-bottom button:hover{background:#F5F8FC}
+  .mmp-bottom .sep{width:1px;height:18px;background:#E5ECF2;margin:0 4px}
+
+  .mmp-saved{display:none !important}
+
+  /* Thinner node styling via SVG override */
+  .mindmap-container svg text{font-family:'Mona Sans',sans-serif}
+  .mindmap-container svg ellipse{stroke-width:1 !important}
+  /* mmp paints its own white background rect inside the SVG — make it
+     transparent so the container's #EDF3FF shows through exactly. */
+  .mindmap-container svg > rect{fill:transparent !important}
+
+  /* ============ PLAN STAGE ============ */
+  .plan-canvas{flex:1;background:#fff;padding:40px 20px;overflow:auto;display:flex;flex-direction:column;align-items:center;position:relative;min-height:calc(100vh - 130px)}
+  .plan-tree{position:relative;min-width:1100px}
+  .plan-row{display:flex;justify-content:center;gap:24px;position:relative}
+  .plan-row.row-screens{margin-top:80px;align-items:flex-start}
+  .plan-row.row-subs{margin-top:60px;flex-wrap:wrap;justify-content:center;gap:18px;max-width:1300px}
+  .plan-node{display:flex;align-items:center;gap:12px;padding:16px 22px;border-radius:12px;cursor:pointer;transition:box-shadow .15s,transform .15s;user-select:none;position:relative;min-width:180px}
+  .plan-node:hover{box-shadow:0 3px 10px rgba(0,0,0,.08)}
+  .plan-node .pn-icon{width:24px;height:24px;border-radius:5px;flex-shrink:0}
+  .plan-node .pn-text{font-weight:600;font-size:16px;color:#1E2A3B;cursor:text;outline:none;line-height:1.3;flex:1}
+  .plan-node .pn-text[contenteditable=true]:focus{outline:1.5px solid #FF6B7A;outline-offset:3px;border-radius:3px}
+  .plan-node .pn-sub{font-size:13px;color:#6B7A8F;font-weight:400;margin-top:1px;cursor:text;outline:none;line-height:1.3}
+  .plan-node .pn-sub[contenteditable=true]:focus{outline:1.5px solid #FF6B7A;outline-offset:3px;border-radius:3px}
+  .pn-text-wrap{display:flex;flex-direction:column;flex:1;min-width:0}
+  .plan-node .pn-delete{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#fff;border:1.5px solid #E5ECF2;cursor:pointer;display:none;align-items:center;justify-content:center;color:#6B7A8F;padding:0;font-size:14px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .plan-node .pn-delete:hover{color:#EF4444;border-color:#EF4444}
+  .plan-node:hover .pn-delete{display:inline-flex}
+  .plan-node.home{background:#E0DCFF;border:1px solid #C7BEFF}
+  .plan-node.home .pn-icon{background:#9C8FFF}
+  .plan-node.screen{background:#CFEBE0;border:1px solid #A8DBC9}
+  .plan-node.screen .pn-icon{background:#5EBC9A}
+  .plan-node.sub{background:#fff;border:1px solid #E5ECF2}
+  .plan-node.sub .pn-icon{background:#E5ECF2}
+  .plan-node.sub .pn-text{font-size:15px}
+  .add-screen-btn{display:flex;align-items:center;gap:10px;padding:16px 22px;border-radius:12px;border:2px dashed #FF6B7A;background:transparent;color:#FF6B7A;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;min-width:180px;justify-content:center;transition:background .15s}
+  .add-screen-btn:hover{background:#FFEEF0}
+  .add-sub-btn{display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:10px;border:1.5px dashed #C5D3E5;background:transparent;color:#6B7A8F;font-family:inherit;font-size:13px;cursor:pointer;transition:all .15s}
+  .add-sub-btn:hover{background:#F5F8FC;border-color:#FF6B7A;color:#FF6B7A}
+  .plan-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+  .plan-svg path{stroke:#B5C0D0;stroke-width:1.5;fill:none}
+  .plan-zoom{position:fixed;bottom:24px;right:24px;background:#fff;border:1px solid #E5ECF2;border-radius:10px;padding:6px;display:flex;gap:2px;box-shadow:0 3px 10px rgba(0,0,0,.08);z-index:30}
+  .plan-zoom button{width:36px;height:36px;border:none;background:transparent;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#1E2A3B;font-size:18px;font-weight:600;padding:0}
+  .plan-zoom button:hover{background:#F5F8FC}
+
+  /* ============ DESIGN STAGE ============ */
+  .design-layout{flex:1;display:grid;grid-template-columns:340px 1fr 320px;height:calc(100vh - 110px);overflow:hidden}
+  .design-themes{border-right:1px solid var(--border);overflow-y:auto;background:#fff}
+  .selected-theme{display:flex;gap:18px;padding:18px;border-bottom:1px solid var(--border);align-items:center}
+  .selected-theme-thumb{width:90px;height:140px;border-radius:10px;background-size:cover;background-position:center;flex-shrink:0;border:1px solid var(--border)}
+  .selected-theme-info h4{font-size:15px;font-weight:700;margin:0 0 6px;color:#1E2A3B}
+  .selected-theme-info p{font-size:12px;color:#6B7A8F;margin:0 0 12px;line-height:1.5}
+  .edit-theme-btn{padding:8px 18px;background:#3BB8E0;color:#fff;border:none;border-radius:20px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
+  .edit-theme-btn:hover{background:#2BA0C8}
+  .themes-grid{padding:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .theme-tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .theme-tile-img{width:100%;aspect-ratio:9/16;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;transition:border-color .15s,transform .15s}
+  .theme-tile:hover .theme-tile-img{border-color:#22C55E}
+  .theme-tile.selected .theme-tile-img{border-color:#22C55E;transform:scale(1.02)}
+  .theme-tile-label{font-size:11px;color:#1E2A3B;font-weight:500}
+
+  .design-canvas{background:#EAF1FF;display:flex;align-items:center;justify-content:center;padding:30px;position:relative;overflow:auto}
+  .phone-frame{width:280px;height:560px;background:#1E2A3B;border-radius:36px;padding:8px;flex-shrink:0;position:relative;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+  .phone-screen{width:100%;height:100%;border-radius:28px;overflow:hidden;position:relative;background:#fff}
+  .phone-notch{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:60px;height:4px;background:#0d141f;border-radius:3px;z-index:5}
+  .phone-titlebar{padding:18px 14px 12px;font-size:13px;font-weight:500}
+  .phone-hero{padding:30px 14px;text-align:center;font-family:'Mona Sans',cursive;font-size:46px;font-weight:700;font-style:italic;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,.2)}
+  .phone-buttons{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+  .phone-btn{padding:11px 16px;border-radius:6px;font-size:13px;font-weight:500;text-align:center}
+  .ai-assist-btn{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#EC4899,#A855F7);color:#fff;border:none;padding:10px 20px;border-radius:24px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(168,85,247,.3)}
+  .ai-assist-btn:hover{filter:brightness(1.05)}
+
+  .design-properties{border-left:1px solid var(--border);overflow-y:auto;background:#fff;padding:20px}
+  .design-properties h3{font-size:14px;font-weight:700;margin:0 0 14px;color:#1E2A3B}
+  .prop-section{padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--border)}
+  .prop-section:last-child{border:none;margin-bottom:0;padding-bottom:0}
+  .prop-section-title{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6B7A8F;margin-bottom:14px}
+  .prop-row{margin-bottom:14px}
+  .prop-label{display:block;font-size:13px;color:#1E2A3B;margin-bottom:6px;font-weight:500}
+  .color-swatch{display:inline-block;width:60px;height:32px;border-radius:6px;cursor:pointer;border:1.5px solid #E5ECF2;position:relative;overflow:hidden}
+  .color-swatch input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;padding:0}
+  .opacity-slider{display:flex;align-items:center;gap:10px}
+  .opacity-slider input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#E5ECF2;border-radius:2px;outline:none}
+  .opacity-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#EC4899;border-radius:50%;cursor:pointer}
+  .opacity-slider input[type=range]::-moz-range-thumb{width:14px;height:14px;background:#EC4899;border-radius:50%;cursor:pointer;border:none}
+  .opacity-slider input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(to right,#EC4899 var(--p,100%),#E5ECF2 var(--p,100%));height:3px;border-radius:2px}
+  .opacity-value{font-size:13px;color:#1E2A3B;font-weight:500;min-width:36px;text-align:right}
+  .prop-select{width:100%;padding:8px 12px;border:1px solid #E5ECF2;border-radius:7px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;cursor:pointer;outline:none}
+  .prop-select:focus{border-color:#22C55E}
+  .layout-select{width:100%;padding:8px 12px;border:1px solid #E5ECF2;border-radius:7px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+  .layout-select-pill{background:#E5ECF2;padding:3px 10px;border-radius:12px;font-size:12px;color:#1E2A3B}
+  .style-buttons{display:flex;gap:6px}
+  .style-btn{flex:1;padding:7px;border:1px solid #E5ECF2;background:#fff;border-radius:6px;cursor:pointer;font:inherit;font-size:13px;color:#1E2A3B;transition:all .15s}
+  .style-btn:hover{background:#F5F8FC}
+  .style-btn.active{background:#1E2A3B;color:#fff;border-color:#1E2A3B}
+
+  /* ============ BUILD STAGE ============ */
+  .build-layout{flex:1;display:grid;grid-template-columns:340px 1fr 320px;height:calc(100vh - 110px);overflow:hidden;background:#fff}
+  .build-templates{border-right:1px solid var(--border);overflow-y:auto;background:#fff;display:flex;flex-direction:column}
+  .bt-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+  .bt-tab{flex:1;padding:14px 8px;text-align:center;font-family:inherit;font-size:14px;font-weight:600;color:#9CA3AF;cursor:pointer;background:transparent;border:none;border-bottom:3px solid transparent;transition:all .15s}
+  .bt-tab.active{color:#3B82F6;border-bottom-color:#3B82F6}
+  .bt-section{padding:18px}
+  .bt-section h4{font-size:12px;color:#9CA3AF;font-weight:600;letter-spacing:.04em;margin:0 0 12px}
+  .bt-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .bt-tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:10px;border:2px solid transparent;transition:all .15s}
+  .bt-tile:hover{background:#F5F8FC}
+  .bt-tile.selected{border-color:#3B82F6;background:#EFF6FF}
+  .bt-tile-img{width:60px;height:60px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .bt-tile-label{font-size:11.5px;color:#1E2A3B;text-align:center;font-weight:500}
+  .bt-tile.selected .bt-tile-label{color:#3B82F6;font-weight:600}
+
+  .build-canvas{background:#EAF1FF;display:flex;align-items:center;justify-content:center;padding:40px;position:relative;overflow:auto}
+  .my-screens-btn{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:#3BB8E0;color:#fff;padding:11px 28px;border-radius:24px;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,184,224,.3);border:none;font-family:inherit;display:flex;align-items:center;gap:6px;transition:background .15s,transform .15s,box-shadow .15s}
+  .my-screens-btn:hover{background:#2BA0C8;transform:translateX(-50%) translateY(-1px);box-shadow:0 6px 18px rgba(59,184,224,.4)}
+
+  /* Screens Popup (slides up from bottom) */
+  .screens-popup-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:250;opacity:0;pointer-events:none;transition:opacity .25s}
+  .screens-popup-backdrop.open{opacity:1;pointer-events:auto}
+  .screens-popup{position:fixed;left:0;right:0;bottom:0;background:#0d2032;color:#fff;z-index:251;padding:18px 24px 26px;transform:translateY(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);box-shadow:0 -8px 32px rgba(0,0,0,.25)}
+  .screens-popup.open{transform:translateY(0)}
+  .screens-popup-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:18px}
+  .screens-search{flex:1;display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .screens-search input{flex:1;background:transparent;border:none;color:#fff;font-family:inherit;font-size:14px;outline:none;padding:6px 0}
+  .screens-search input::placeholder{color:rgba(255,255,255,.45)}
+  .screens-popup-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:7px 16px;border-radius:20px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s}
+  .screens-popup-close:hover{background:rgba(255,255,255,.12)}
+  .screens-list{display:flex;gap:14px;overflow-x:auto;padding:6px 2px 12px}
+  .screens-list::-webkit-scrollbar{height:6px}
+  .screens-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+  .screen-tile{flex-shrink:0;width:200px;cursor:pointer;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .screen-tile-card{width:100%;height:120px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.10);border-radius:12px;display:flex;align-items:center;justify-content:center;transition:all .2s;overflow:hidden;position:relative}
+  .screen-tile:hover .screen-tile-card{border-color:#3BB8E0;background:rgba(59,184,224,.08)}
+  .screen-tile.active .screen-tile-card{border-color:#22C55E;border-width:2px;box-shadow:0 0 0 1px #22C55E}
+  .screen-tile-label{font-size:13px;color:#fff;font-weight:500}
+  .screen-tile.active .screen-tile-label{color:#22C55E}
+  .screen-tile-icons{display:flex;gap:4px;align-items:center;justify-content:center}
+  .screen-tile-icons .si-img{width:28px;height:24px;background:linear-gradient(135deg,#60A5FA,#3B82F6);border-radius:4px;position:relative;border:1px solid rgba(255,255,255,.15)}
+  .screen-tile-icons .si-img::before{content:'';position:absolute;width:5px;height:5px;border-radius:50%;background:#FBBF24;top:5px;left:5px}
+  .screen-tile-icons .si-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:#1E40AF;clip-path:polygon(0 100%,30% 40%,55% 65%,80% 25%,100% 100%)}
+  .screen-tile-mini{width:60%;display:flex;flex-direction:column;align-items:center;gap:5px;padding-top:4px}
+  .screen-tile-mini .row{display:flex;gap:3px;align-items:center}
+  .screen-tile-mini .row .dot{width:4px;height:4px;border-radius:50%}
+  .screen-tile-mini .row .dot.g{background:#22C55E}
+  .screen-tile-mini .row .dot.b{background:#fff;opacity:.6}
+  .screen-tile-mini .bar{width:80%;height:4px;background:#EF4444;border-radius:2px;margin-top:3px}
+  /* Home screen tile - special icon */
+  .screen-tile.home .screen-tile-card{padding:16px}
+  .screen-tile.home .home-icon{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:60px;height:60px}
+  .screen-tile.home .home-icon span{border-radius:6px}
+  .screen-tile.home .home-icon span:nth-child(1){background:#FBBF24}
+  .screen-tile.home .home-icon span:nth-child(2){background:#3B82F6}
+  .screen-tile.home .home-icon span:nth-child(3){background:#A855F7}
+  .screen-tile.home .home-icon span:nth-child(4){background:#EF4444}
+
+  /* Screen Info side panel */
+  .screen-info-panel{position:fixed;top:0;right:0;bottom:0;width:420px;background:#fff;border-left:1px solid var(--border);z-index:260;transform:translateX(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.10)}
+  .screen-info-panel.open{transform:translateX(0)}
+  .screen-info-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .screen-info-title{flex:1;min-width:0}
+  .screen-info-title h2{margin:0;font-size:18px;font-weight:700;color:#1E2A3B;line-height:1.3}
+  .screen-info-name{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 10px;background:#EFF6FF;border:1.5px solid transparent;border-radius:14px;font-size:12px;font-weight:600;color:#3B82F6;max-width:100%;cursor:pointer;transition:background .15s,border-color .15s}
+  .screen-info-name:hover{background:#DBEAFE}
+  .screen-info-name .edit-pencil{margin-left:2px;opacity:.55;transition:opacity .15s}
+  .screen-info-name:hover .edit-pencil{opacity:1}
+  .screen-info-name.editing{background:#fff;border-color:#3B82F6;cursor:text}
+  .screen-info-name.editing .edit-pencil{display:none}
+  .screen-info-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .screen-info-name input{border:none;outline:none;background:transparent;font:inherit;color:#3B82F6;padding:0;min-width:80px;max-width:240px;width:100%}
+  .screen-info-body{padding:24px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:24px}
+  .screen-info-field h4{font-size:15px;font-weight:700;color:#1E2A3B;margin:0 0 12px;line-height:1.45}
+  .screen-info-field input{width:100%;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:#F5F8FC;font:inherit;font-size:14px;color:#1E2A3B;outline:none;transition:border-color .15s,background .15s}
+  .screen-info-field input:focus{border-color:#3B82F6;background:#fff}
+  .screen-info-field input::placeholder{color:#A8B3C2}
+  .build-phone{width:300px;height:560px;background:#0d141f;border-radius:36px;padding:8px;flex-shrink:0;position:relative;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+  .build-phone-notch{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:60px;height:4px;background:#000;border-radius:3px;z-index:5}
+  .build-phone-screen{width:100%;height:100%;border-radius:28px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+  .build-phone-titlebar{padding:18px 14px 14px;background:#1A47E0;color:#fff;font-size:13px;font-weight:500}
+  .build-add-btn{margin:14px;padding:11px;background:#9CA3AF;color:#fff;border:none;border-radius:24px;font-family:inherit;font-size:13px;font-weight:600;cursor:default;display:flex;align-items:center;justify-content:center;gap:6px;opacity:.55}
+
+  .build-properties{border-left:1px solid var(--border);overflow-y:auto;background:#fff;display:flex;flex-direction:column}
+  .bp-header{background:#3BB8E0;color:#fff;padding:11px 18px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;flex-shrink:0}
+  .bp-header svg{flex-shrink:0}
+  .bp-body{padding:20px;overflow-y:auto}
+  .bp-body h3{font-size:15px;font-weight:700;margin:0 0 18px;color:#1E2A3B}
+  .bp-section-title{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6B7A8F;margin-bottom:14px;display:flex;align-items:center;gap:6px;position:relative}
+  .bp-info-icon{width:14px;height:14px;border-radius:50%;background:#9CA3AF;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:help;position:relative}
+  .bp-info-icon::after{content:'Add a Screen Name to unlock this template';position:absolute;top:-8px;left:calc(100% + 8px);background:#1E2A3B;color:#fff;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+  .bp-info-icon:hover::after{opacity:1}
+  .bp-row{margin-bottom:18px}
+  .bp-label{display:block;font-size:13.5px;color:#1E2A3B;margin-bottom:8px;font-weight:500}
+  .bp-required{color:#EF4444;margin-left:2px}
+  .bp-input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;outline:none;transition:border-color .15s}
+  .bp-input:focus{border-color:#3B82F6}
+  .bp-input::placeholder{color:#A8B3C2}
+  .bp-select{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7A8F' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px}
+  .bp-slider{display:flex;align-items:center;gap:12px}
+  .bp-slider input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+  .bp-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#fff;border:2px solid #6B7A8F;border-radius:50%;cursor:pointer}
+  .bp-slider-value{font-size:13px;color:#1E2A3B;min-width:34px;text-align:right}
+  .bp-color{display:inline-block;width:60px;height:32px;border-radius:6px;cursor:pointer;border:1.5px solid var(--border);position:relative;overflow:hidden}
+  .bp-color input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;padding:0}
+
+  /* Build Q&A toast */
+  .build-saved-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(40px);background:#10B981;color:#fff;padding:12px 22px;border-radius:24px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(16,185,129,.35);z-index:60;display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.4,1.4,.5,1),opacity .25s}
+  .build-saved-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ============ EMPATHIZE STAGE ============ */
+  .dt-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;width:100%;max-width:1180px;margin:24px auto;padding:0 12px}
+  .dt-cards-grid .sub-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:0;overflow:hidden;transition:border-color .2s}
+  .dt-cards-grid .sub-card h3{background:#FEF3EE;color:#1E2A3B;margin:0;padding:16px 22px;font-size:15px;font-weight:600;text-align:center;border-bottom:1px solid #FAD9C5;transition:background .2s,color .2s}
+  .dt-cards-grid .sub-card.active{border-color:#F57C3A}
+  .dt-cards-grid .sub-card.active h3{background:#F57C3A;color:#fff;border-bottom-color:#F57C3A}
+  .dt-cards-grid .sub-card ul{padding:14px 22px 6px;margin:0;list-style:disc;padding-left:42px}
+  .dt-cards-grid .sub-card ul li{font-size:13.5px;color:#1E2A3B;line-height:1.7;margin-bottom:2px}
+  .dt-cards-grid .sub-card textarea{width:calc(100% - 44px);margin:10px 22px 22px;min-height:130px;border:1px solid var(--border);border-radius:8px;padding:14px;font:inherit;font-size:13.5px;color:#1E2A3B;background:#fff;outline:none;resize:vertical;transition:border-color .15s}
+  .dt-cards-grid .sub-card textarea:focus{border-color:#F57C3A}
+
+  /* ============ DEFINE STAGE ============ */
+  .define-main{padding:40px;display:flex;flex-direction:column;gap:24px;align-items:center}
+  .define-card{width:100%;max-width:1180px;background:#fff;border:1.5px solid #FAD9C5;border-radius:14px;overflow:hidden;transition:border-color .2s}
+  .define-card-header{background:#FFEEF0;color:#1E2A3B;padding:18px 26px;font-size:16px;font-weight:600;text-align:center;transition:background .2s,color .2s}
+  .define-card.active{border-color:#FF6B7A}
+  .define-card.active .define-card-header{background:#FF6B7A;color:#fff}
+  .define-card-body{padding:18px 26px 24px;background:#FFFAFB}
+  .define-bullets{padding-left:24px;margin:0 0 16px;list-style:disc}
+  .define-bullets li{font-size:14px;color:#1E2A3B;line-height:1.9}
+  .define-textarea{width:100%;min-height:130px;border:1px solid #FAD9C5;border-radius:8px;padding:14px;font:inherit;font-size:14px;color:#1E2A3B;background:#fff;outline:none;resize:vertical;transition:border-color .15s}
+  .define-textarea:focus{border-color:#FF6B7A}
+  .define-ai-card{width:100%;max-width:1180px;background:#F0F7FF;border:1px solid #C5DCF0;border-radius:14px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .define-ai-text{font-size:15px;color:#1E2A3B;font-weight:500}
+  .define-ai-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;background:#FF6B7A;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s;box-shadow:0 2px 8px rgba(255,107,122,.30)}
+  .define-ai-btn:hover{background:#EE5867;transform:translateY(-1px)}
+
+  /* ============ IDEATE STAGE ============ */
+  /* Override .main defaults: full bleed (no padding/max-width), grid fills viewport */
+  .ideate-main{flex:1;display:grid;grid-template-columns:1fr 380px;gap:0;height:calc(100vh - 116px);overflow:hidden;background:#EAF1FF;padding:0;max-width:none;margin:0;width:100%}
+  .ideate-mindmap-wrap{position:relative;background:#EAF1FF;overflow:hidden;width:100%;height:100%}
+  .ideate-mmp{width:100%;height:100%;position:absolute;inset:0;background:#EAF1FF;border:none;border-radius:0;border-top:none}
+  /* Right side panel — flush right, no left border, height fills full available space */
+  .ideate-side{padding:24px 22px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;border-left:none;background:#fff;height:100%}
+  .ideate-field{display:flex;flex-direction:column;gap:8px}
+  .ideate-label{font-size:14px;font-weight:600;color:#1E2A3B}
+  .ideate-sublabel{font-size:12.5px;color:#6B7A8F;margin:0;line-height:1.5}
+  .ideate-input{width:100%;min-height:80px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font:inherit;font-size:13.5px;color:#1E2A3B;background:#F5F8FC;outline:none;resize:vertical;transition:border-color .15s,background .15s}
+  .ideate-input:focus{border-color:#22C55E;background:#fff}
+  .ideate-input::placeholder{color:#A8B3C2}
+  .ideate-secondary-btn{padding:11px 16px;border:1.5px solid #22C55E;background:#fff;color:#22C55E;border-radius:10px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s}
+  .ideate-secondary-btn:hover{background:#F0FDF4}
+
+  /* ============ PROTOTYPE STAGE ============ */
+  .prototype-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .prototype-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+  /* Make Plan/Design/Build fill the prototype-body, not the whole viewport */
+  .prototype-body .plan-canvas{min-height:0;flex:1}
+  .prototype-body .design-layout{height:100%}
+  .prototype-body .build-layout{height:100%}
+
+  /* Prototype sub-tabs (inline in info-bar) */
+  .proto-tabs-inline{display:flex;gap:4px;align-items:center;background:#F1F5F9;border-radius:24px;padding:4px}
+  .proto-tab-pill{background:transparent;border:none;color:#6B7A8F;font:inherit;font-size:13px;font-weight:500;padding:7px 18px;cursor:pointer;border-radius:18px;transition:background .15s,color .15s}
+  .proto-tab-pill:hover{color:#3B82F6}
+  .proto-tab-pill.active{background:#fff;color:#3B82F6;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  /* ============ CTA PANEL (Ideate) — looks like Guide but separate ============ */
+  .cta-panel{z-index:201}
+  .app-shell[data-step="ideate"] .cta-panel .guide-block{background:#E8FBEE}
+  .app-shell[data-step="ideate"] .cta-panel .guide-block h4{color:#22C55E}
+
+  /* ============ LAUNCH REFLECTION ============ */
+  .launch-reflection-intro{font-size:14px;color:#6B7A8F;line-height:1.6;margin:8px 0 22px}
+  .launch-reflection-card{background:#FDF2F8;border:1px solid #FCE7F3;border-radius:12px;padding:20px 22px;margin-bottom:16px}
+  .launch-reflection-card h3{color:#EC4899;font-size:16px;font-weight:700;margin:0 0 8px}
+  .launch-reflection-prompt{font-size:13.5px;color:#1E2A3B;margin:0 0 14px;line-height:1.6}
+  .launch-reflection-textarea{width:100%;min-height:96px;border:1px solid #FCE7F3;border-radius:8px;padding:12px 14px;font:inherit;font-size:13.5px;color:#1E2A3B;background:#fff;outline:none;resize:vertical;transition:border-color .15s}
+  .launch-reflection-textarea:focus{border-color:#EC4899}
+
+  /* ============ TEST STAGE ============ */
+  .test-layout{flex:1;display:grid;grid-template-columns:240px 1fr 1fr;gap:0;height:calc(100vh - 110px);overflow:hidden;background:#fff}
+  .test-sidebar{padding:24px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;border-right:1px solid var(--border)}
+  .test-side-card{display:flex;gap:12px;align-items:flex-start;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;background:#fff;transition:all .15s}
+  .test-side-card:hover{border-color:#A855F7}
+  .test-side-card.active{border-color:#A855F7;background:#FAF5FF}
+  .test-side-icon{width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .test-side-icon.review{background:#DBEAFE}
+  .test-side-icon.share{background:#DBEAFE}
+  .test-side-info h4{font-size:13px;font-weight:700;color:#1E2A3B;margin:0 0 3px}
+  .test-side-info p{font-size:11.5px;color:#6B7A8F;margin:0;line-height:1.5}
+
+  .test-questions{padding:24px 30px;overflow-y:auto;border-right:1px solid var(--border)}
+  .test-questions h2{font-size:18px;font-weight:700;margin:0 0 6px;color:#1E2A3B}
+  .test-questions-sub{font-size:13px;color:#6B7A8F;margin:0 0 22px}
+  .test-q-card{border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px;display:flex;gap:14px;align-items:flex-start;transition:border-color .15s}
+  .test-q-card.checked{border-color:#A855F7;background:#FAFAFB}
+  .test-q-checkbox{width:20px;height:20px;border:2px solid #C5D3E5;border-radius:5px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:all .15s;background:#fff}
+  .test-q-checkbox:hover{border-color:#A855F7}
+  .test-q-checkbox.checked{background:#A855F7;border-color:#A855F7}
+  .test-q-content{flex:1;min-width:0}
+  .test-q-title{font-size:14px;font-weight:700;color:#1E2A3B;margin-bottom:4px;cursor:pointer;user-select:none}
+  .test-q-title.struck{text-decoration:line-through;color:#9CA3AF}
+  .test-q-prompt{font-size:13px;color:#374151;margin-bottom:6px;line-height:1.55}
+  .test-q-hint{font-size:12px;color:#6B7A8F;font-style:italic;margin-bottom:10px;line-height:1.5}
+  .test-q-input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;outline:none;transition:border-color .15s}
+  .test-q-input:focus{border-color:#A855F7}
+  .test-q-input::placeholder{color:#A8B3C2}
+
+  .test-preview{padding:24px 30px;display:flex;flex-direction:column;align-items:center;overflow-y:auto}
+  .test-device-toggle{display:flex;background:#fff;border-radius:24px;padding:4px;border:1px solid var(--border);margin-bottom:24px;gap:2px}
+  .test-device-btn{padding:8px 22px;border:none;background:transparent;border-radius:20px;font:inherit;font-size:13px;font-weight:600;color:#6B7A8F;cursor:pointer;transition:all .15s}
+  .test-device-btn.active{background:#3B82F6;color:#fff}
+  .test-phone{width:280px;height:540px;background:#0d141f;border-radius:36px;padding:8px;position:relative;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+  .test-phone.tablet{width:340px;height:480px;border-radius:24px}
+  .test-phone-screen{width:100%;height:100%;border-radius:28px;overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(180deg,#FB923C 0%,#EC4899 50%,#9333EA 100%);position:relative}
+  .test-phone.tablet .test-phone-screen{border-radius:18px}
+  .test-phone-titlebar{padding:18px 16px 14px;color:#fff;font-size:13px;font-weight:500}
+  .test-phone-hero{text-align:center;font-family:'Mona Sans',cursive;font-size:48px;font-weight:700;font-style:italic;color:#fff;letter-spacing:1.5px;text-shadow:0 2px 6px rgba(0,0,0,.3);padding:8px 0}
+  .test-phone-buttons{display:flex;gap:18px;justify-content:center;padding:24px 0}
+  .test-phone-btn{background:#1E40AF;color:#fff;padding:18px 24px;border-radius:50%;font-size:13px;font-weight:600;width:100px;height:100px;display:flex;align-items:center;justify-content:center;text-align:center}
+  .test-phone-decor{position:absolute;bottom:0;left:0;right:0;height:50%;pointer-events:none;overflow:hidden}
+  .test-phone-decor::before{content:'';position:absolute;bottom:30px;right:20px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#F97316,#9333EA);box-shadow:0 0 40px rgba(249,115,22,.4)}
+
+  /* Share App view (Test stage) */
+  .test-share-section{padding:32px 36px}
+  .test-share-section h2{margin:0 0 18px;font-size:18px;font-weight:700;color:#1E2A3B}
+  .share-link-card{border:1px solid var(--border);border-radius:10px;padding:16px 18px;background:#fff;margin-bottom:16px}
+  .share-link-box{font-size:13.5px;color:#3B82F6;font-weight:500;word-break:break-all;line-height:1.65;font-family:'Menlo','Monaco',monospace}
+  .share-copy-row{display:flex;justify-content:center;margin-bottom:24px}
+  .share-copy-btn{display:inline-flex;align-items:center;gap:8px;background:#3BB8E0;color:#fff;border:none;padding:11px 28px;border-radius:24px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,184,224,.3);transition:background .15s,transform .15s}
+  .share-copy-btn:hover{background:#2BA0C8;transform:translateY(-1px)}
+  .share-copy-btn:active{transform:translateY(0)}
+  .share-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:8px 0 32px}
+  .share-qr{padding:10px;background:#fff;border-radius:6px}
+  .share-qr svg{display:block}
+  .share-bookmark-note{max-width:520px;text-align:center;font-size:13px;color:#6B7A8F;line-height:1.6;margin:4px 0 0}
+
+  /* Copy Link confirmation toast (reuses Build saved toast styling) */
+  .share-copy-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(40px);background:#10B981;color:#fff;padding:12px 22px;border-radius:24px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(16,185,129,.35);z-index:60;display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.4,1.4,.5,1),opacity .25s}
+  .share-copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ============ LAUNCH STAGE ============ */
+  .launch-layout{flex:1;display:grid;grid-template-columns:240px 1fr 1fr;gap:0;height:calc(100vh - 110px);overflow:hidden;background:#fff}
+  .launch-sidebar{padding:24px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;border-right:1px solid var(--border)}
+  .launch-side-card{display:flex;gap:12px;align-items:center;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;background:#fff;transition:all .15s}
+  .launch-side-card:hover{border-color:#EC4899}
+  .launch-side-card.active{border-color:#EC4899;background:#FDF2F8}
+  .launch-side-icon{width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .launch-side-info h4{font-size:13px;font-weight:700;color:#1E2A3B;margin:0;line-height:1.4}
+
+  .launch-content{padding:24px 30px;overflow-y:auto;border-right:1px solid var(--border)}
+  .launch-content h2{font-size:18px;font-weight:700;margin:0 0 14px;color:#1E2A3B}
+
+  /* Description view — Beautiful App Info Card */
+  .launch-app-card{
+    display:flex;gap:20px;padding:24px;
+    background:linear-gradient(135deg,#FFF5F8 0%,#FFFFFF 60%,#FDF4FF 100%);
+    border:1px solid #FCE7F3;border-radius:18px;margin-bottom:28px;align-items:center;
+    box-shadow:0 4px 16px rgba(236,72,153,.08), 0 1px 3px rgba(0,0,0,.04);
+    position:relative;overflow:hidden;
+    transition:transform .25s,box-shadow .25s
+  }
+  .launch-app-card::before{
+    content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;
+    background:radial-gradient(circle,#FCE7F3 0%,transparent 70%);
+    pointer-events:none;opacity:.6
+  }
+  .launch-app-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(236,72,153,.12), 0 2px 6px rgba(0,0,0,.06)}
+
+  .launch-app-img{
+    width:88px;height:88px;border-radius:20px;
+    background:linear-gradient(135deg,#60A5FA 0%,#3B82F6 50%,#1E40AF 100%);
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;
+    box-shadow:0 8px 20px rgba(59,130,246,.35), inset 0 1px 0 rgba(255,255,255,.3);
+    z-index:1
+  }
+  /* Sun */
+  .launch-app-img::before{
+    content:'';position:absolute;width:22px;height:22px;border-radius:50%;
+    background:radial-gradient(circle,#FEF3C7 0%,#FBBF24 60%,#F59E0B 100%);
+    top:18px;left:22px;
+    box-shadow:0 0 16px rgba(251,191,36,.7), 0 0 4px rgba(251,191,36,.4);
+    z-index:2
+  }
+  /* Mountains */
+  .launch-app-img::after{
+    content:'';position:absolute;bottom:0;left:0;right:0;height:55%;
+    background:linear-gradient(180deg,#1E40AF 0%,#1E3A8A 100%);
+    clip-path:polygon(0 100%, 25% 35%, 45% 55%, 65% 20%, 90% 50%, 100% 35%, 100% 100%)
+  }
+
+  .launch-app-info{flex:1;min-width:0;position:relative;z-index:1}
+  .launch-app-name{
+    font-size:22px;font-weight:700;color:#1E2A3B;margin:0 0 8px;
+    letter-spacing:-.3px;line-height:1.2
+  }
+  .launch-app-author{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#fff;border:1px solid #FCE7F3;
+    padding:4px 10px;border-radius:20px;
+    font-size:12px;color:#6B7A8F;font-weight:500;margin-bottom:10px
+  }
+  .launch-app-author .author-dot{
+    width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg,#A855F7,#EC4899);
+    color:#fff;font-size:10px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center
+  }
+  .launch-app-meta-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .launch-app-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:13px;color:#1E2A3B;font-weight:500;
+    padding:4px 0
+  }
+  .launch-app-pill svg{flex-shrink:0;color:#EC4899}
+  .launch-app-divider{width:1px;height:14px;background:#E5ECF2}
+
+  .launch-section-label{font-size:14px;font-weight:700;color:#1E2A3B;margin:0 0 10px}
+  .launch-textarea{width:100%;min-height:120px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;outline:none;resize:vertical;transition:border-color .15s;margin-bottom:24px}
+  .launch-textarea:focus{border-color:#EC4899}
+  .launch-textarea::placeholder{color:#A8B3C2}
+
+  .launch-tags-wrap{padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:54px}
+  .launch-tag{display:inline-flex;align-items:center;gap:6px;background:#EC4899;color:#fff;padding:5px 12px;border-radius:14px;font-size:12.5px;font-weight:600}
+  .launch-tag-x{cursor:pointer;font-size:14px;line-height:1;opacity:.85;transition:opacity .15s}
+  .launch-tag-x:hover{opacity:1}
+  .launch-tag-input{flex:1;min-width:120px;border:none;background:transparent;outline:none;font:inherit;font-size:13px;color:#1E2A3B;padding:4px}
+  .launch-tag-input::placeholder{color:#A8B3C2}
+
+  /* CTA placeholder view */
+  .launch-cta-placeholder{padding:60px 30px;text-align:center;color:#6B7A8F;font-size:14px;line-height:1.7}
+  .launch-cta-placeholder svg{margin-bottom:16px;opacity:.4}
+  .launch-cta-placeholder h3{font-size:18px;font-weight:700;color:#1E2A3B;margin:0 0 8px}
+
+  /* Pitch view */
+  .launch-pitch-intro{font-size:13.5px;color:#374151;line-height:1.7;margin-bottom:18px}
+  .launch-pitch-card{background:#FDF2F8;border-radius:12px;padding:24px;color:#1E2A3B}
+  .launch-pitch-card h3{font-size:14px;font-weight:700;color:#EC4899;margin:0 0 12px}
+  .launch-pitch-card .pitch-block{margin-bottom:18px}
+  .launch-pitch-card .pitch-block:last-child{margin-bottom:0}
+  .launch-pitch-card p{font-size:13px;line-height:1.7;color:#1E2A3B;margin:0 0 6px}
+  .launch-pitch-card .pitch-quote{font-style:italic;color:#6B21A8}
+  .launch-pitch-card ul{padding-left:18px;margin:6px 0 0}
+  .launch-pitch-card ul li{font-size:13px;line-height:1.8;color:#1E2A3B;list-style:disc;color:#374151}
+  .launch-pitch-card ul li::marker{color:#EC4899}
+
+  .launch-preview{padding:24px 30px;display:flex;flex-direction:column;align-items:center;overflow-y:auto}
+  .launch-device-toggle{display:flex;background:#fff;border-radius:24px;padding:4px;border:1px solid var(--border);margin-bottom:24px;gap:2px}
+  .launch-device-btn{padding:8px 22px;border:none;background:transparent;border-radius:20px;font:inherit;font-size:13px;font-weight:600;color:#6B7A8F;cursor:pointer;transition:all .15s}
+  .launch-device-btn.active{background:#3B82F6;color:#fff}
+  .launch-phone{width:280px;height:540px;background:#0d141f;border-radius:36px;padding:8px;position:relative;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+  .launch-phone.tablet{width:340px;height:480px;border-radius:24px}
+  .launch-phone-screen{width:100%;height:100%;border-radius:28px;overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(180deg,#FB923C 0%,#EC4899 50%,#9333EA 100%);position:relative}
+  .launch-phone.tablet .launch-phone-screen{border-radius:18px}
+  .launch-phone-titlebar{padding:18px 16px 14px;color:#fff;font-size:13px;font-weight:500}
+  .launch-phone-hero{text-align:center;font-family:'Mona Sans',cursive;font-size:48px;font-weight:700;font-style:italic;color:#fff;letter-spacing:1.5px;text-shadow:0 2px 6px rgba(0,0,0,.3);padding:8px 0}
+  .launch-phone-buttons{display:flex;gap:18px;justify-content:center;padding:24px 0}
+  .launch-phone-btn{background:#1E40AF;color:#fff;padding:18px 24px;border-radius:50%;font-size:13px;font-weight:600;width:100px;height:100px;display:flex;align-items:center;justify-content:center;text-align:center}
+  .launch-phone-decor{position:absolute;bottom:0;left:0;right:0;height:50%;pointer-events:none;overflow:hidden}
+  .launch-phone-decor::before{content:'';position:absolute;bottom:30px;right:20px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#F97316,#9333EA);box-shadow:0 0 40px rgba(249,115,22,.4)}
+
+
+  /* ============ SIDE NAV PANEL ============ */
+  .side-nav-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:300;
+    opacity:0;pointer-events:none;transition:opacity .3s
+  }
+  .side-nav-overlay.open{opacity:1;pointer-events:auto}
+  .side-nav{
+    position:fixed;top:0;left:0;bottom:0;width:280px;
+    background:#005ECC;
+    z-index:301;transform:translateX(-100%);
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column;
+    box-shadow:8px 0 32px rgba(0,0,0,.18);overflow:hidden
+  }
+  .side-nav.open{transform:translateX(0)}
+  .side-nav-header{
+    padding:22px 24px 18px;display:flex;align-items:center;gap:14px;
+    border-bottom:1px solid rgba(255,255,255,.15);flex-shrink:0
+  }
+  .side-nav-logo{
+    color:#fff;font-family:'Mona Sans',cursive;font-size:24px;font-weight:700;font-style:italic;
+    letter-spacing:.5px;display:flex;align-items:center;gap:6px
+  }
+  .side-nav-logo-mark{
+    background:#fff;color:#005ECC;font-family:Inter,sans-serif;font-size:13px;font-weight:800;
+    padding:3px 7px;border-radius:4px;letter-spacing:1px;font-style:normal
+  }
+  .side-nav-close{
+    margin-left:auto;width:32px;height:32px;border-radius:8px;border:none;
+    background:rgba(255,255,255,.1);color:#fff;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s
+  }
+  .side-nav-close:hover{background:rgba(255,255,255,.2)}
+  .side-nav-list{
+    flex:1;overflow-y:auto;padding:18px 14px;display:flex;flex-direction:column;gap:4px
+  }
+  .side-nav-item{
+    display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;
+    color:#fff;cursor:pointer;font-size:15px;font-weight:500;letter-spacing:.2px;
+    transition:background .2s,transform .2s;
+    border:none;background:transparent;font-family:inherit;text-align:left;width:100%
+  }
+  .side-nav-item:hover{background:rgba(255,255,255,.13);transform:translateX(2px)}
+  .side-nav-item.active{
+    background:#fff;color:#0d141f;
+    box-shadow:0 4px 14px rgba(0,0,0,.18)
+  }
+  .side-nav-item.active .side-nav-icon{color:#005ECC}
+  .side-nav-icon{
+    width:32px;height:32px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;color:#fff;
+    transition:color .2s
+  }
+  .side-nav-arrow{margin-left:auto;opacity:.7;transition:transform .2s}
+  .side-nav-item:hover .side-nav-arrow{transform:translateX(3px)}
+
+  /* ============ GUIDE PANEL ============ */
+  .guide-panel{
+    position:fixed;top:0;right:0;bottom:0;width:420px;
+    background:#fff;border-left:1px solid var(--border);
+    display:flex;flex-direction:column;
+    z-index:200;
+    box-shadow:-10px 0 30px rgba(0,0,0,.10);
+    animation:slideIn .25s ease
+  }
+  @keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .guide-head{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--border)}
+  .guide-head h2{margin:0;font-size:18px}
+  .guide-body{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+  .guide-block{background:var(--orange-soft);border-radius:10px;padding:18px}
+  .guide-block h4{margin:0 0 10px;color:var(--orange);font-size:15px}
+  .guide-block p{margin:0;font-size:13.5px;line-height:1.55;white-space:pre-line}
+  .guide-qa{margin-bottom:6px}
+  .guide-qa h4{margin:0 0 10px;font-size:15px;font-weight:700;color:var(--ink)}
+  .guide-qa input{width:100%;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:#F5F8FC;font:inherit;font-size:14px;color:var(--ink);outline:none;transition:border-color .15s,background .15s}
+  .guide-qa input:focus{border-color:var(--active-color, var(--orange));background:#fff}
+  .guide-qa input::placeholder{color:#A8B3C2}
+
+  @media (max-width:560px){
+    .guide-panel{width:100%}
+  }
+</style>
+</head>
+<body>
+<div id="app" class="app-shell guide-open"></div>
+
+<!-- ============ SIDE NAV ============ -->
+<div class="side-nav-overlay" id="sideNavOverlay"></div>
+<aside class="side-nav" id="sideNav">
+  <div class="side-nav-header">
+    <span class="side-nav-logo">
+      <span class="side-nav-logo-mark">MAD</span>
+      <span>learn</span>
+    </span>
+    <button class="side-nav-close" id="sideNavClose" aria-label="Close menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <nav class="side-nav-list" id="sideNavList">
+    <button class="side-nav-item active" data-side-item="dashboard">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      </span>
+      Dashboard
+    </button>
+    <button class="side-nav-item" data-side-item="brainstorming">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6 .8.8 1 1.5 1 2v1h6v-1c0-.5.2-1.2 1-2 1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7Z"/></svg>
+      </span>
+      Brainstorming
+    </button>
+    <button class="side-nav-item" data-side-item="apps">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </span>
+      Apps
+    </button>
+    <button class="side-nav-item" data-side-item="classes">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+      </span>
+      Classes
+      <svg class="side-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="side-nav-item" data-side-item="curriculum">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </span>
+      Curriculum
+    </button>
+    <button class="side-nav-item" data-side-item="tutorials">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      </span>
+      Tutorials
+    </button>
+    <button class="side-nav-item" data-side-item="codesets">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      </span>
+      Code Sets
+    </button>
+    <button class="side-nav-item" data-side-item="users">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      Users
+      <svg class="side-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="side-nav-item" data-side-item="dataanalysis">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
+      </span>
+      Data Analysis
+    </button>
+    <button class="side-nav-item" data-side-item="support">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>
+      Support
+    </button>
+    <button class="side-nav-item" data-side-item="admin">
+      <span class="side-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="2"/><path d="M12 6h.01"/></svg>
+      </span>
+      Admin
+    </button>
+  </nav>
+</aside>
+
+
+<script>
+/* ---------------- DATA ---------------- */
+const SECTIONS = [
+  {
+    id:'empathize', title:'Empathize',
+    description:'Understand your user and their problem.',
+    cards:[
+      { title:'Brainstorm Problems or Opportunities',
+        questions:[
+          'What are you passionate about that you want to share with the world?',
+          'What is a problem you face that you wish you could solve?',
+          'What is a community or group you would like to help by sharing information with them?'
+        ], placeholder:'Write your answers here…' },
+      { title:'Choose A Problem or Opportunity to Focus On',
+        questions:[
+          'Why Does It Matter?',
+          'What impact will solving this problem have on your users?',
+          'How urgent or frequent is this problem for your target audience?'
+        ], placeholder:'Write your answers here…' },
+      { title:'Audience',
+        questions:[
+          'Who is this for?',
+          'Think about who would care about these problems or opportunities'
+        ], placeholder:'Write your answers here…' },
+      { title:'Research and Record Observations Here', questions:[], placeholder:'Write your answers here…', optional:true }
+    ],
+    guide:[
+      { heading:'What is Empathize?',
+        body:`Empathize is where you get to know the people you're designing for. Before you build anything, you need to understand what your users need, what frustrates them, and what would make their lives easier. Good apps solve real problems for real people.` },
+      { heading:'How to do it well',
+        body:`Talk to people, not just your friends. Ask open questions like "What's hard about this?" or "What do you wish existed?" Listen more than you talk.\nThe best insights come from paying attention to what people actually do, not just what they say they do.` },
+      { heading:'Good example',
+        body:`Marcus wanted to build a sports app. Instead of jumping straight to building, he asked five classmates what was annoying about keeping track of their team's schedule. He learned they all struggled with last-minute changes, so he built a calendar feature he never would have thought of on his own.` }
+    ]
+  },
+  {
+    id:'define', title:'Define',
+    description:'Turn your data into a clear problem statement.',
+    cards:[
+      { title:'My problem or opportunity is defined\n(I know what it is and can clearly state it).',
+        questions:[],
+        placeholder:'Write your answers here…' },
+      { variant:'ai-assist',
+        title:'I need help with my problem or opportunity statement' },
+      { span:2,
+        title:'Clearly State the Problem or Opportunity Your App Solves or Presents Here:',
+        questions:[
+          `Analyze what you've learned`,
+          'Identify patterns',
+          'Write your problem statement here'
+        ],
+        placeholder:'Write your Problem Statement here…' }
+    ],
+    guide:[
+      { heading:'What is Define?',
+        body:`Define is where you turn everything you learned from empathizing into one clear problem statement. Instead of trying to solve everything at once, you focus on the most important problem your user faces and say it in a single sentence.` },
+      { heading:'How to do it well',
+        body:`Look back at your research and ask: what kept coming up? What's the real frustration underneath the surface?\nA strong problem statement names the user, describes the problem, and hints at why it matters. Avoid jumping to solutions here. Stay focused on the problem.` },
+      { heading:'Good example',
+        body:`After talking to classmates, Sofia noticed everyone mentioned the same thing: they could never find reliable volunteer opportunities near them. Her problem statement became: "Students who want to volunteer don't have an easy way to find local opportunities that fit their schedule."` }
+    ]
+  },
+  {
+    id:'ideate', title:'Ideate',
+    description:'Get creative! Generate solutions to your problem.',
+    cards:[
+      { variant:'mindmap', span:2,
+        title:`Now that I've defined my problem/opportunity, what are some solutions?`,
+        questions:['Use the mind map to brainstorm multiple approaches – aim for at least three before choosing one.'],
+        mindmapData:{
+          id:'root', topic:'My Problem Statement', root:true,
+          children:[
+            { id:'i1', topic:'Idea 1\nApp Approach' },
+            { id:'i2', topic:'Idea 2\nApp Approach' },
+            { id:'i3', topic:'Idea 3\nApp Approach' },
+            { id:'i4', topic:'Idea 4\nApp Approach' }
+          ]
+        }
+      }
+    ],
+    guide:[
+      { heading:'What is Ideate?',
+        body:`Ideate is your chance to get creative and generate as many solutions as possible. There are no bad ideas in this phase. The goal is to think broadly before narrowing down.\nThe best solution often isn't the first one you think of.` },
+      { heading:'How to do it well',
+        body:`Use the mind map to brainstorm multiple approaches. Aim for at least three different solutions before choosing the one you like best. Push past your first idea.\nAsk "what else could work?" or "what's the opposite of what I would normally do?" Quantity leads to quality.` },
+      { heading:'Good example',
+        body:`Darius was brainstorming app solutions for students who forgot their homework. His first idea was a simple reminder app. But after further brainstorming, he came up with a checklist app to help students break down each homework task and ensure nothing was forgotten.` }
+    ]
+  }
+];
+const PLAN_GUIDE = [
+  { heading:'What is Plan?',
+    body:`Plan is where you map out your app's structure before you start building. You decide which screens your app will have, what each button does, and how a user moves through the experience. Think of it like a blueprint for your app.` },
+  { heading:'How to do it well',
+    body:`Map out your app's buttons and screens based on the best solution from your mind map. Keep it simple — every screen should have a clear purpose. Ask yourself: if a user clicks this button, where should they go?\nButton 1 → Screen 1. Button 2 → Screen 2.\nYou can always add more later.` },
+  { heading:'Good example',
+    body:`Priya planned a wellness app with three main screens: a mood check-in, a breathing exercise, and a daily journal. By mapping it out first, she realized her original home screen had too many options, so she simplified it to two buttons, which made the whole app feel less overwhelming.` }
+];
+
+const DESIGN_GUIDE = [
+  { variant:'qa', heading:'My app should feel:', placeholder:'friendly, urgent, calm…', key:'feel' },
+  { variant:'qa', heading:'So my colors & style will be', placeholder:'bright, upbeat, modern…', key:'style' },
+  { variant:'qa', heading:'To match that tone, I will avoid:', placeholder:'black theme, dull colors…', key:'avoid' },
+  { heading:'What is Design?',
+    body:`Design is where your app starts to look and feel real. Before you build anything, you sketch how your screens will look, pick colors and fonts, and decide how users will move through your app.` },
+  { heading:'How to do it well',
+    body:`Always design for your user — not for yourself. Ask: "Will my user find this easy to understand?" Keep it simple, use clear labels, and make sure the most important thing on each screen stands out.` },
+  { heading:'Good example',
+    body:`A student designing an app for young kids used big buttons, bright colors, and simple icons instead of text-heavy menus. Simple, visual, and easy for the audience to use.` }
+];
+
+const BUILD_GUIDE = [
+  { heading:'What is Build?',
+    body:`Build is where your app comes to life! Turn your ideas and designs into real content with buttons, screens, text, images and interactive features that the end user can use.` },
+  { heading:'How to do it well',
+    body:`Add real content. Every button and screen should have a clear purpose so your user can find what they need easily.` },
+  { heading:'Good example',
+    body:`A student building a homework tracker replaced the placeholder button text with labels like "Add Assignment" and "View Due Today." She also added a quiz template for weekly review. When a classmate tested it, they knew exactly what to do without any explanation.` }
+];
+
+const TEST_GUIDE = [
+  { heading:'What is the Test phase?',
+    body:`Testing is when you share your app with real users to see how they experience it. You observe, listen, and collect feedback — not to prove your app works, but to learn how to make it better.` },
+  { heading:'How to do it well',
+    body:`Share your app with at least one real person. Watch how they use it without guiding them. Ask open questions like "What was confusing?" or "What worked well?" Write down what they say in their own words.` },
+  { heading:'Good example',
+    body:`Jada shared her cooking app with a classmate. Her tester couldn't find the recipe page. Jada realized her button label was unclear so she renamed it "Find a Recipe" and it worked much better.` }
+];
+
+const LAUNCH_GUIDE = [
+  { heading:'What is Launch?',
+    body:`Launch is when you share your finished app with the world. It's your chance to present what you built, explain the problem you solved, and show others why your app matters. This is your moment to pitch your idea with confidence.` },
+  { heading:'How to do it well',
+    body:`Craft a short elevator pitch: start with the problem your user faces, introduce your app as the solution, and end with the impact it makes. Practice saying it out loud until it feels natural. Don't start with "my app has these features", start with a real person and a real problem.` },
+  { heading:'Example',
+    body:`At their school showcase, a student opened with: "My friend always forgot which days football practice was on, so I built an app that sends automatic reminders. Now they never miss practice." The audience understood the app in under 10 seconds.` }
+];
+
+// Call to Action side panel (Ideate stage)
+const CTA_CONTENT = [
+  { heading:'What is a Call to Action?',
+    body:`A Call to Action (CTA) is what you want your audience to do after using your app. It's the one clear action you're asking them to take — like signing up, learning something, or changing a habit.` },
+  { heading:'How to do it well',
+    body:`Make it specific and doable. Instead of "help people be healthy," try "remind users to drink water every 2 hours."\nAsk yourself: What should someone do differently after using my app? A strong CTA is simple, clear, and connects directly to the problem you're solving.` },
+  { heading:'Good example',
+    body:`A student building a homework tracker replaced the placeholder button text with labels like "Add Assignment" and "View Due Today." She also added a quiz template for weekly review. When a classmate tested it, they knew exactly what to do without any explanation.` }
+];
+
+// Reflection sections (Launch stage)
+const REFLECTION_SECTIONS = [
+  { key:'process',    title:'Process',    body:`How you worked. Design thinking is a cycle, not a finish line. What would your next iteration look like if you had more time?` },
+  { key:'resilience', title:'Resilience', body:`How you pushed through. What was the hardest moment in this project — and what did you do?` },
+  { key:'values',     title:'Values',     body:`Why it mattered. What does your app say about what you care about?` },
+  { key:'voice',      title:'Voice',      body:`How you share it. If you were pitching this to someone who could actually use it, what's the one thing you'd want them to walk away knowing?` }
+];
+
+const STEPS = [
+  {id:'empathize',label:'Empathize'},{id:'define',label:'Define'},{id:'ideate',label:'Ideate'},
+  {id:'prototype',label:'Prototype'},{id:'test',label:'Test'},{id:'launch',label:'Launch'}
+];
+
+/* ---------------- STATE ---------------- */
+const state = {
+  activeStep:'empathize',
+  openSectionId:'empathize',
+  guideOpen:true,
+  ctaPanelOpen: false,         // "What is Call to Action?" side panel (Ideate)
+  prototypeTab: 'planner',     // 'planner' | 'design' | 'build'
+  launchView: 'description',   // 'description' | 'pitch' | 'reflection'
+  defineText: '',              // Define stage textarea
+  ideate: {
+    finalSolution: '',
+    reason: '',
+    callToAction: ''
+  },
+  reflection: {
+    process: '',
+    resilience: '',
+    values: '',
+    voice: ''
+  },
+  answers:{},
+  // Plan stage state
+  plan: {
+    home: { text:'Home screen' },
+    screens: [
+      { id:'s1', text:'Screen 1', subs:[
+        { id:'sa', text:'Sub-page A', sub:'Sub-page' },
+        { id:'sb', text:'Sub-page B', sub:'Sub-page' }
+      ]},
+      { id:'s2', text:'Screen 2', subs:[
+        { id:'sc', text:'Sub-page C', sub:'Sub-page' }
+      ]},
+      { id:'s3', text:'Screen 3', subs:[
+        { id:'sd', text:'Sub-page D', sub:'Sub-page' },
+        { id:'se', text:'Sub-page E', sub:'Sub-page' }
+      ]}
+    ],
+    nextId: 100
+  },
+  // Design stage state
+  design: {
+    selectedTheme: 1,
+    titleBar: { color:'#1A47E0', opacity:100, font:'Inter', bold:false, italic:false, underline:false, textColor:'#FFFFFF' },
+    buttons:  { color:'#1A47E0', opacity:100, font:'Inter', bold:false, italic:false, underline:false, textColor:'#FFFFFF', layout:'Listing' },
+    qa: { feel:'', style:'', avoid:'' }
+  },
+  // Build stage state
+  build: {
+    selectedTemplate: 'inner-menu',
+    screenName: '',
+    linkScreen: '',
+    backgroundOpacity: 0,
+    buttonColor: '#FFFFFF',
+    buttonText: '',
+    buttonTextColor: '#1E2A3B',
+    screens: [
+      { name: 'Home Screen', isHome: true, info: { helps:'', success:'' } }
+    ],
+    screensPopupOpen: false,
+    screenInfoOpen: false,
+    activeScreenIdx: null,
+    screensSearch: ''
+  },
+  // Test stage state
+  test: {
+    activeView: 'review-guidelines',  // 'review-guidelines' or 'share-app'
+    deviceView: 'phone',               // 'phone' or 'tablet'
+    checks: {},                        // { questionId: true/false }
+    notes:  {}                         // { questionId: 'text' }
+  },
+  // Launch stage state
+  launch: {
+    activeView: 'pitch',               // 'description', 'cta', 'pitch'
+    deviceView: 'phone',               // 'phone' or 'tablet'
+    appDescription: '',
+    tags: ['Education','Productivity'],
+    newTag: ''
+  }
+};
+
+/* ---------------- ICONS ---------------- */
+const I = {
+  menu:  `<svg viewBox="0 0 24 24" width="22" height="22"><path d="M3 6h18M3 12h18M3 18h18" stroke="#3BB8E0" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+  pencil:`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 20h4l10-10-4-4L4 16v4z" fill="none" stroke="#1E2A3B" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  info:  `<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#1E2A3B" stroke-width="1.8"/><path d="M12 8v0M12 11v5" stroke="#1E2A3B" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  plus:  `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"/></svg>`,
+  plusW: `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+  minusW:`<svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+  close: `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6L6 18" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"/></svg>`
+};
+
+/* ---------------- RENDER ---------------- */
+const app = document.getElementById('app');
+
+function updateGuideOffset(){
+  const topBar = document.querySelector('.top-bar');
+  if(topBar){
+    // Guide sits RIGHT BELOW the first header and covers the info bar.
+    // This keeps it stable whether the page is scrolled or not.
+    document.documentElement.style.setProperty('--guide-top', topBar.offsetHeight + 'px');
+  }
+}
+window.addEventListener('resize', updateGuideOffset);
+window.addEventListener('scroll', updateGuideOffset);
+
+function render(){
+  app.className = 'app-shell' + (state.guideOpen ? ' guide-open' : '');
+  app.setAttribute('data-step', state.activeStep);
+
+  // Pick guide content + info bar text based on active stage
+  let guide = [];
+  let infoText = '';
+
+  if(state.activeStep === 'empathize'){
+    const sec = SECTIONS.find(s => s.id === 'empathize');
+    guide = sec.guide;
+    infoText = `An app can solve a problem, share something you're passionate about, provide information or entertain.`;
+  } else if(state.activeStep === 'define'){
+    const sec = SECTIONS.find(s => s.id === 'define');
+    guide = sec.guide;
+    infoText = `Turn your data into a clear problem statement.`;
+  } else if(state.activeStep === 'ideate'){
+    const sec = SECTIONS.find(s => s.id === 'ideate');
+    guide = sec.guide;
+    infoText = `Get creative! Use the mind map to brainstorm at least three solutions to your problem.`;
+  } else if(state.activeStep === 'prototype'){
+    // Prototype: guide and info text depend on the active sub-tab
+    if(state.prototypeTab === 'planner'){
+      guide = PLAN_GUIDE;
+      infoText = `Plan your app's screens and buttons.`;
+    } else if(state.prototypeTab === 'design'){
+      guide = DESIGN_GUIDE;
+      infoText = `Define your app's message, theme, and aesthetic.`;
+    } else if(state.prototypeTab === 'build'){
+      guide = BUILD_GUIDE;
+      infoText = `Build your interactive app — ready to test and improve.`;
+    }
+  } else if(state.activeStep === 'test'){
+    guide = TEST_GUIDE;
+    infoText = `Share your app with at least one real user and collect feedback.`;
+  } else if(state.activeStep === 'launch'){
+    guide = LAUNCH_GUIDE;
+    infoText = `Share your solution and pitch it to the world.`;
+  }
+
+  app.innerHTML = `
+    <header class="top-bar">
+      <button class="icon-btn" id="hamburgerBtn" aria-label="Open menu">${I.menu}</button>
+      <div class="app-title"><span>My first app</span><button class="icon-btn">${I.pencil}</button></div>
+
+      <nav class="journey">
+        ${STEPS.map((s,i)=>`
+          <button class="journey-step ${s.id===state.activeStep?'active':''}" data-step="${s.id}" style="z-index:${STEPS.length-i}">${s.label}</button>
+        `).join('')}
+      </nav>
+
+      <div class="header-actions">
+        <div class="color-dots"><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+        <button class="icon-btn circle-btn" aria-label="Add">${I.plus}</button>
+        <div class="avatar"></div>
+      </div>
+    </header>
+
+    <div class="info-bar">
+      <div class="info-left">${I.info}<p>${infoText}</p></div>
+      ${state.activeStep === 'prototype' ? `
+        <nav class="proto-tabs-inline">
+          <button class="proto-tab-pill ${state.prototypeTab==='planner'?'active':''}" data-proto-tab="planner">Planner</button>
+          <button class="proto-tab-pill ${state.prototypeTab==='design'?'active':''}" data-proto-tab="design">Design</button>
+          <button class="proto-tab-pill ${state.prototypeTab==='build'?'active':''}" data-proto-tab="build">Build</button>
+        </nav>
+      ` : ''}
+      ${!state.guideOpen ? `<button class="guide-pill" id="openGuide"><span class="pill-dot"></span> Guide</button>` : ''}
+    </div>
+
+    <div class="layout">
+      ${renderStageContent()}
+
+      ${state.guideOpen ? `
+        <aside class="guide-panel">
+          <div class="guide-head"><h2>Guide</h2><button class="icon-btn" id="closeGuide">${I.close}</button></div>
+          <div class="guide-body">
+            ${guide.map(b=>{
+              if(b.variant==='qa'){
+                const v = (state.design.qa && state.design.qa[b.key]) || '';
+                return `<div class="guide-qa">
+                  <h4>${b.heading}</h4>
+                  <input type="text" placeholder="${b.placeholder}" value="${escapeHtml(v)}" data-qa="design:${b.key}">
+                </div>`;
+              }
+              return `<div class="guide-block"><h4>${b.heading}</h4><p>${b.body}</p></div>`;
+            }).join('')}
+          </div>
+        </aside>` : ''}
+
+      ${state.ctaPanelOpen ? `
+        <aside class="guide-panel cta-panel">
+          <div class="guide-head"><h2>What is Call to Action?</h2><button class="icon-btn" id="closeCtaPanel">${I.close}</button></div>
+          <div class="guide-body">
+            ${CTA_CONTENT.map(b=>`<div class="guide-block"><h4>${b.heading}</h4><p>${b.body}</p></div>`).join('')}
+          </div>
+        </aside>` : ''}
+    </div>
+  `;
+
+  bindCommonEvents();
+  if(state.activeStep === 'empathize') bindEmpathizeEvents();
+  if(state.activeStep === 'define')    bindDefineEvents();
+  if(state.activeStep === 'ideate')    bindIdeateEvents();
+  if(state.activeStep === 'prototype'){
+    bindPrototypeTabEvents();
+    if(state.prototypeTab === 'planner') bindPlanEvents();
+    if(state.prototypeTab === 'design')  bindDesignEvents();
+    if(state.prototypeTab === 'build')   bindBuildEvents();
+  }
+  if(state.activeStep === 'test')   bindTestEvents();
+  if(state.activeStep === 'launch') bindLaunchEvents();
+
+  // Mind map renders on Ideate stage
+  if(state.activeStep === 'ideate') initMindmaps();
+  updateGuideOffset();
+}
+
+function renderStageContent(){
+  if(state.activeStep === 'empathize') return renderEmpathizeStage();
+  if(state.activeStep === 'define')    return renderDefineStage();
+  if(state.activeStep === 'ideate')    return renderIdeateStage();
+  if(state.activeStep === 'prototype') return renderPrototypeStage();
+  if(state.activeStep === 'test')      return renderTestStage();
+  if(state.activeStep === 'launch')    return renderLaunchStage();
+  return renderEmpathizeStage();
+}
+
+function renderPlaceholder(){
+  const labels = { build:'Build', test:'Test', launch:'Launch' };
+  return `<main class="main" style="align-items:center;justify-content:center;min-height:60vh">
+    <div style="text-align:center;color:var(--muted);padding:60px 20px">
+      <h2 style="margin:0 0 8px;color:var(--ink);font-size:22px">${labels[state.activeStep]} stage</h2>
+      <p style="margin:0;font-size:14px">Coming soon — mockup pending.</p>
+    </div>
+  </main>`;
+}
+
+/* ---------------- CARD RENDERER HELPER ---------------- */
+// Renders the inner content of a card from SECTIONS data.
+function renderCard(sec, c, ci){
+  const cls = ['sub-card'];
+  if(c.span===2) cls.push('span-2');
+  if(c.variant==='ai-assist') cls.push('ai-assist');
+  if(c.variant==='ai-assist'){
+    return `<article class="${cls.join(' ')}">
+      <h3>${c.title}</h3>
+      <button class="ai-btn" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z" fill="#fff"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="#fff" opacity=".85"/></svg>
+        AI-assist
+      </button>
+    </article>`;
+  }
+  return `<article class="${cls.join(' ')}">
+    <h3>${c.title}${c.optional?' <span class="optional">(optional)</span>':''}</h3>
+    ${c.questions && c.questions.length?`<ul>${c.questions.map(q=>`<li>${q}</li>`).join('')}</ul>`:''}
+    <textarea placeholder="${c.placeholder||''}" data-answer="${sec.id}:${ci}">${state.answers[sec.id+':'+ci]||''}</textarea>
+  </article>`;
+}
+
+/* ---------------- EMPATHIZE STAGE ---------------- */
+function renderEmpathizeStage(){
+  const sec = SECTIONS.find(s => s.id === 'empathize');
+  return `<main class="main">
+    <div class="dt-cards-grid">
+      ${sec.cards.map((c,ci)=>renderCard(sec, c, ci)).join('')}
+    </div>
+  </main>`;
+}
+
+/* ---------------- DEFINE STAGE ---------------- */
+function renderDefineStage(){
+  return `<main class="main define-main">
+    <div class="define-card">
+      <div class="define-card-header">Clearly State the Problem or Opportunity Your App Solves or Presents Here</div>
+      <div class="define-card-body">
+        <ul class="define-bullets">
+          <li>Analyze what you've learned</li>
+          <li>Identify patterns</li>
+          <li>Write your problem statement here</li>
+        </ul>
+        <textarea class="define-textarea" placeholder="Write your answers here…" data-define-text>${escapeHtml(state.defineText||'')}</textarea>
+      </div>
+    </div>
+
+    <div class="define-ai-card">
+      <div class="define-ai-text">I need help with my problem or opportunity statement</div>
+      <button class="define-ai-btn" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z" fill="#fff"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="#fff" opacity=".85"/></svg>
+        Get AI Help
+      </button>
+    </div>
+  </main>`;
+}
+
+/* ---------------- IDEATE STAGE ---------------- */
+function renderIdeateStage(){
+  const mindmapData = {
+    id:'root', topic:'My Problem Statement', root:true,
+    children:[
+      { id:'i1', topic:'Solution 1' },
+      { id:'i2', topic:'Solution 2' },
+      { id:'i3', topic:'Solution 3' }
+    ]
+  };
+  // store mindmap data so initMindmaps can use it
+  state.mindmaps = state.mindmaps || {};
+  state.mindmaps['ideate:0'] = state.mindmaps['ideate:0'] || mindmapData;
+
+  return `<main class="main ideate-main">
+    <div class="ideate-mindmap-wrap">
+      <div class="mindmap-container ideate-mmp" data-mmp-wrap="ideate:0">
+        <div class="map-canvas" id="mindmap-ideate-0" data-mindmap="ideate:0"></div>
+
+        <div class="mmp-tl">
+          <button class="mmp-btn green" data-mmp-act="add" title="Add subtopic (Tab)">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+          </button>
+          <button class="mmp-btn" data-mmp-act="remove" title="Remove node (Delete)">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12h14" stroke="#1E2A3B" stroke-width="2.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="mmp-slider"><div class="mmp-slider-track"><div class="mmp-slider-thumb" data-mmp-thumb></div></div></div>
+
+        <div class="mmp-right">
+          <label class="mmp-swatch mmp-tip" data-tip="Change node color">
+            <span class="mmp-swatch-dot" style="background:#FFFFFF;border:1.5px solid #E5ECF2"></span>
+            <input type="color" value="#ffffff" data-mmp-color="node">
+          </label>
+          <label class="mmp-swatch mmp-tip" data-tip="Change text color">
+            <span class="mmp-swatch-dot" style="background:#1E2A3B"></span>
+            <input type="color" value="#1e2a3b" data-mmp-color="text">
+          </label>
+          <label class="mmp-swatch mmp-tip" data-tip="Change branch color">
+            <span class="mmp-swatch-dot" style="background:#2E8BF5"></span>
+            <input type="color" value="#2e8bf5" data-mmp-color="branch">
+          </label>
+          <button class="mmp-btn mmp-tip" data-tip="Zoom in" data-mmp-act="zoom-in">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
+          </button>
+          <button class="mmp-btn mmp-tip" data-tip="Zoom out" data-mmp-act="zoom-out">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>
+          </button>
+          <button class="mmp-btn mmp-tip" data-tip="Fit to view" data-mmp-act="center">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><circle cx="12" cy="12" r="2.5"/></svg>
+          </button>
+        </div>
+
+        <div class="mmp-bottom">
+          <button data-mmp-act="copy" title="Copy">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+          </button>
+          <button data-mmp-act="cut" title="Cut">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></svg>
+          </button>
+          <button data-mmp-act="paste" title="Paste">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          </button>
+          <span class="sep"></span>
+          <button data-mmp-act="bold" title="Bold"><b>B</b></button>
+          <button data-mmp-act="italic" title="Italic"><i>I</i></button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="ideate-side">
+      <div class="ideate-field">
+        <label class="ideate-label">Write your finalized solution here</label>
+        <textarea class="ideate-input" placeholder="Write here…" data-ideate="finalSolution">${escapeHtml(state.ideate.finalSolution)}</textarea>
+      </div>
+      <div class="ideate-field">
+        <label class="ideate-label">Why you choose this solution over other ones?</label>
+        <textarea class="ideate-input" placeholder="Write your reasons here…" data-ideate="reason">${escapeHtml(state.ideate.reason)}</textarea>
+      </div>
+      <div class="ideate-field">
+        <label class="ideate-label">What is your Call to Action?</label>
+        <p class="ideate-sublabel">What do you want your audience to do after interacting with your artifact?</p>
+        <textarea class="ideate-input" placeholder="Write your response here…" data-ideate="callToAction">${escapeHtml(state.ideate.callToAction)}</textarea>
+      </div>
+      <button class="ideate-secondary-btn" id="openCtaPanelBtn">What is Call to Action?</button>
+      <button class="ideate-secondary-btn" type="button">Get AI help</button>
+    </aside>
+  </main>`;
+}
+
+/* ---------------- PROTOTYPE STAGE (planner / design / build) ---------------- */
+function renderPrototypeStage(){
+  const tab = state.prototypeTab;
+  let body = '';
+  if(tab === 'planner') body = renderPlanStage();
+  else if(tab === 'design') body = renderDesignStage();
+  else if(tab === 'build') body = renderBuildStage();
+
+  return `<div class="prototype-wrap">
+    <div class="prototype-body">${body}</div>
+  </div>`;
+}
+
+function bindCommonEvents(){
+  app.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',e=>{
+    const newStep = e.currentTarget.getAttribute('data-step');
+    state.activeStep = newStep;
+    // Auto-open guide on every chevron click — same behavior across all stages
+    state.guideOpen = true;
+    state.ctaPanelOpen = false;                              // mutual exclusion
+    if(state.build) state.build.screenInfoOpen = false;      // mutual exclusion
+    render();
+  }));
+  const openG = document.getElementById('openGuide');
+  if(openG) openG.addEventListener('click',()=>{
+    state.guideOpen=true;
+    state.ctaPanelOpen = false;                              // mutual exclusion
+    if(state.build) state.build.screenInfoOpen = false;      // mutual exclusion
+    render();
+  });
+  const closeG = document.getElementById('closeGuide');
+  if(closeG) closeG.addEventListener('click',()=>{ state.guideOpen=false; render(); });
+
+  // Hamburger → open side nav
+  const hamburger = document.getElementById('hamburgerBtn');
+  if(hamburger) hamburger.addEventListener('click', openSideNav);
+
+  // Q&A inputs (in Guide panel for design) — save without re-render so focus is preserved
+  app.querySelectorAll('[data-qa]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const [stageKey, key] = e.target.getAttribute('data-qa').split(':');
+      if(state[stageKey] && state[stageKey].qa) state[stageKey].qa[key] = e.target.value;
+    });
+  });
+
+  // CTA panel close button
+  const closeCta = document.getElementById('closeCtaPanel');
+  if(closeCta) closeCta.addEventListener('click',()=>{ state.ctaPanelOpen=false; render(); });
+}
+
+// ── Side Nav ──
+function openSideNav(){
+  document.getElementById('sideNav').classList.add('open');
+  document.getElementById('sideNavOverlay').classList.add('open');
+}
+function closeSideNav(){
+  document.getElementById('sideNav').classList.remove('open');
+  document.getElementById('sideNavOverlay').classList.remove('open');
+}
+// One-time setup for side nav (overlay click + close button + item highlight)
+document.addEventListener('DOMContentLoaded',()=>{
+  const close = document.getElementById('sideNavClose');
+  const overlay = document.getElementById('sideNavOverlay');
+  if(close) close.addEventListener('click', closeSideNav);
+  if(overlay) overlay.addEventListener('click', closeSideNav);
+  document.querySelectorAll('[data-side-item]').forEach(item=>{
+    item.addEventListener('click',e=>{
+      document.querySelectorAll('[data-side-item]').forEach(i=>i.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+    });
+  });
+});
+
+function bindEmpathizeEvents(){
+  app.querySelectorAll('[data-answer]').forEach(t=>{
+    t.addEventListener('input',e=>{
+      state.answers[e.target.getAttribute('data-answer')] = e.target.value;
+    });
+    // Highlight the card header in orange when the textarea is focused
+    t.addEventListener('focus', e=>{
+      const card = e.target.closest('.sub-card');
+      if(card) card.classList.add('active');
+    });
+    t.addEventListener('blur', e=>{
+      const card = e.target.closest('.sub-card');
+      if(card) card.classList.remove('active');
+    });
+  });
+}
+
+function bindDefineEvents(){
+  const ta = app.querySelector('[data-define-text]');
+  if(ta){
+    ta.addEventListener('input', e => { state.defineText = e.target.value; });
+    ta.addEventListener('focus', e=>{
+      const card = e.target.closest('.define-card');
+      if(card) card.classList.add('active');
+    });
+    ta.addEventListener('blur', e=>{
+      const card = e.target.closest('.define-card');
+      if(card) card.classList.remove('active');
+    });
+  }
+}
+
+function bindIdeateEvents(){
+  app.querySelectorAll('[data-ideate]').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const key = e.target.getAttribute('data-ideate');
+      state.ideate[key] = e.target.value;
+    });
+  });
+  // CTA panel open button
+  const ctaBtn = document.getElementById('openCtaPanelBtn');
+  if(ctaBtn) ctaBtn.addEventListener('click', ()=>{
+    state.ctaPanelOpen = true;
+    state.guideOpen = false;   // mutual exclusion: only one side panel at a time
+    render();
+  });
+}
+
+function bindPrototypeTabEvents(){
+  app.querySelectorAll('[data-proto-tab]').forEach(b=>b.addEventListener('click',e=>{
+    state.prototypeTab = e.currentTarget.getAttribute('data-proto-tab');
+    state.guideOpen = true;   // re-open guide with the new sub-tab's content
+    render();
+  }));
+}
+
+/* ---------------- PLAN STAGE ---------------- */
+function renderPlanStage(){
+  const p = state.plan;
+  const totalSubs = p.screens.reduce((acc,s)=>acc+Math.max(s.subs.length,1),0);
+  const SCREEN_W = 200, GAP = 28;
+
+  return `<main class="plan-canvas">
+    <div class="plan-tree">
+      <svg class="plan-svg" id="planSvg"></svg>
+
+      <div class="plan-row row-home">
+        <div class="plan-node home" data-node-type="home">
+          <div class="pn-icon"></div>
+          <div class="pn-text-wrap">
+            <div class="pn-text" contenteditable="true" data-pn-edit="home">${escapeHtml(p.home.text)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="plan-row row-screens" id="planScreens">
+        ${p.screens.map(s=>`
+          <div class="plan-node screen" data-screen-id="${s.id}">
+            <div class="pn-icon"></div>
+            <div class="pn-text-wrap">
+              <div class="pn-text" contenteditable="true" data-pn-edit="screen:${s.id}">${escapeHtml(s.text)}</div>
+            </div>
+            <button class="pn-delete" data-delete-screen="${s.id}" title="Delete screen">&times;</button>
+          </div>
+        `).join('')}
+        <button class="add-screen-btn" id="addScreenBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#FF6B7A" stroke-width="2.4" stroke-linecap="round"/></svg>
+          Add screen
+        </button>
+      </div>
+
+      <div class="plan-row row-subs" id="planSubs">
+        ${p.screens.map(s=>`
+          ${s.subs.map(sub=>`
+            <div class="plan-node sub" data-sub-id="${sub.id}" data-parent="${s.id}">
+              <div class="pn-icon"></div>
+              <div class="pn-text-wrap">
+                <div class="pn-text" contenteditable="true" data-pn-edit="sub-text:${sub.id}">${escapeHtml(sub.text)}</div>
+                <div class="pn-sub" contenteditable="true" data-pn-edit="sub-sub:${sub.id}">${escapeHtml(sub.sub)}</div>
+              </div>
+              <button class="pn-delete" data-delete-sub="${sub.id}" title="Delete sub-page">&times;</button>
+            </div>
+          `).join('')}
+          <button class="add-sub-btn" data-add-sub="${s.id}" title="Add sub-page to ${escapeHtml(s.text)}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Sub-page
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="plan-zoom">
+      <button title="Zoom in" id="planZoomIn">+</button>
+      <button title="Zoom out" id="planZoomOut">−</button>
+      <button title="Fit" id="planZoomFit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E2A3B" stroke-width="2" stroke-linecap="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/></svg>
+      </button>
+    </div>
+  </main>`;
+}
+
+function bindPlanEvents(){
+  // Inline editing
+  app.querySelectorAll('[data-pn-edit]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const key = e.target.getAttribute('data-pn-edit');
+      const text = e.target.textContent.trim();
+      const p = state.plan;
+      if(key==='home') p.home.text = text;
+      else if(key.startsWith('screen:')){
+        const id = key.split(':')[1];
+        const s = p.screens.find(x=>x.id===id); if(s) s.text = text;
+      } else if(key.startsWith('sub-text:')){
+        const id = key.split(':')[1];
+        for(const s of p.screens){ const sub = s.subs.find(x=>x.id===id); if(sub){ sub.text=text; break; } }
+      } else if(key.startsWith('sub-sub:')){
+        const id = key.split(':')[1];
+        for(const s of p.screens){ const sub = s.subs.find(x=>x.id===id); if(sub){ sub.sub=text; break; } }
+      }
+    });
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); e.target.blur(); } });
+  });
+
+  // Add screen
+  const addBtn = document.getElementById('addScreenBtn');
+  if(addBtn) addBtn.addEventListener('click',()=>{
+    const id = 's' + (state.plan.nextId++);
+    state.plan.screens.push({ id, text:`Screen ${state.plan.screens.length+1}`, subs:[] });
+    render();
+  });
+
+  // Add sub-page
+  app.querySelectorAll('[data-add-sub]').forEach(b=>b.addEventListener('click',e=>{
+    const sid = e.currentTarget.getAttribute('data-add-sub');
+    const s = state.plan.screens.find(x=>x.id===sid);
+    if(!s) return;
+    const subId = 'sub' + (state.plan.nextId++);
+    const letter = String.fromCharCode(65 + s.subs.length);
+    s.subs.push({ id:subId, text:`Sub-page ${letter}`, sub:'Sub-page' });
+    render();
+  }));
+
+  // Delete screen
+  app.querySelectorAll('[data-delete-screen]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id = e.currentTarget.getAttribute('data-delete-screen');
+    state.plan.screens = state.plan.screens.filter(s=>s.id!==id);
+    render();
+  }));
+
+  // Delete sub-page
+  app.querySelectorAll('[data-delete-sub]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id = e.currentTarget.getAttribute('data-delete-sub');
+    state.plan.screens.forEach(s=>{ s.subs = s.subs.filter(x=>x.id!==id); });
+    render();
+  }));
+
+  // Draw connector lines
+  requestAnimationFrame(drawPlanConnectors);
+}
+
+function drawPlanConnectors(){
+  const svg = document.getElementById('planSvg');
+  if(!svg) return;
+  const tree = svg.parentElement;
+  const treeRect = tree.getBoundingClientRect();
+  svg.setAttribute('width', treeRect.width);
+  svg.setAttribute('height', treeRect.height);
+  svg.innerHTML = '';
+
+  const home = tree.querySelector('.plan-node.home');
+  if(!home) return;
+  const homeRect = home.getBoundingClientRect();
+  const hx = homeRect.left - treeRect.left + homeRect.width/2;
+  const hy = homeRect.bottom - treeRect.top;
+
+  // Home → screens
+  state.plan.screens.forEach(s=>{
+    const el = tree.querySelector(`[data-screen-id="${s.id}"]`);
+    if(!el) return;
+    const r = el.getBoundingClientRect();
+    const sx = r.left - treeRect.left + r.width/2;
+    const sy = r.top - treeRect.top;
+    const midY = (hy + sy) / 2;
+    addPath(svg, `M ${hx} ${hy} V ${midY} H ${sx} V ${sy}`, true);
+  });
+
+  // Screen → subs
+  state.plan.screens.forEach(s=>{
+    const sEl = tree.querySelector(`[data-screen-id="${s.id}"]`);
+    if(!sEl) return;
+    const sRect = sEl.getBoundingClientRect();
+    const sx = sRect.left - treeRect.left + sRect.width/2;
+    const sBy = sRect.bottom - treeRect.top;
+
+    s.subs.forEach(sub=>{
+      const el = tree.querySelector(`[data-sub-id="${sub.id}"]`);
+      if(!el) return;
+      const r = el.getBoundingClientRect();
+      const subX = r.left - treeRect.left + r.width/2;
+      const subY = r.top - treeRect.top;
+      const midY = (sBy + subY) / 2;
+      addPath(svg, `M ${sx} ${sBy} V ${midY} H ${subX} V ${subY}`, true);
+    });
+  });
+}
+
+function addPath(svg, d, arrow){
+  const ns = 'http://www.w3.org/2000/svg';
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', d);
+  p.setAttribute('marker-end', 'url(#planArrow)');
+  svg.appendChild(p);
+  if(!svg.querySelector('#planArrow')){
+    const defs = document.createElementNS(ns,'defs');
+    defs.innerHTML = `<marker id="planArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 5L0 10z" fill="#B5C0D0"/></marker>`;
+    svg.insertBefore(defs, svg.firstChild);
+  }
+}
+
+window.addEventListener('resize',()=>{ if(state.activeStep==='plan') drawPlanConnectors(); });
+
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+/* ---------------- DESIGN STAGE ---------------- */
+const THEMES = [
+  { id:0, label:'Default Theme',  bg:'linear-gradient(180deg,#7DD3FC 0%,#3B82F6 100%)', heroBg:'linear-gradient(180deg,#0EA5E9,#1D4ED8)' },
+  { id:1, label:'Theme 1',        bg:'linear-gradient(180deg,#F97316 0%,#EC4899 100%)', heroBg:'linear-gradient(180deg,#FB923C,#EC4899)', special:'space' },
+  { id:2, label:'Theme 2',        bg:'linear-gradient(180deg,#FBBF24 0%,#F97316 100%)', heroBg:'linear-gradient(180deg,#FCD34D,#F97316)' },
+  { id:3, label:'Theme 3',        bg:'linear-gradient(180deg,#60A5FA 0%,#1E40AF 100%)', heroBg:'linear-gradient(180deg,#60A5FA,#1E40AF)' },
+  { id:4, label:'Theme 4',        bg:'linear-gradient(180deg,#FBBF24 0%,#EAB308 100%)', heroBg:'linear-gradient(180deg,#FDE68A,#EAB308)' },
+  { id:5, label:'Theme 5',        bg:'linear-gradient(180deg,#FBCFE8 0%,#F472B6 100%)', heroBg:'linear-gradient(180deg,#FBCFE8,#EC4899)' }
+];
+
+function renderDesignStage(){
+  const d = state.design;
+  const theme = THEMES.find(t=>t.id===d.selectedTheme) || THEMES[1];
+
+  return `<div class="design-layout">
+
+    <aside class="design-themes">
+      <div class="selected-theme">
+        <div class="selected-theme-thumb" style="background:${theme.bg}"></div>
+        <div class="selected-theme-info">
+          <h4>Selected Theme</h4>
+          <p>Click on the below button to upload new theme images.</p>
+          <button class="edit-theme-btn">Edit this theme</button>
+        </div>
+      </div>
+      <div class="themes-grid">
+        ${THEMES.map(t=>`
+          <div class="theme-tile ${t.id===d.selectedTheme?'selected':''}" data-theme="${t.id}">
+            <div class="theme-tile-img" style="background:${t.bg}"></div>
+            <div class="theme-tile-label">${t.label}</div>
+          </div>
+        `).join('')}
+      </div>
+    </aside>
+
+    <div class="design-canvas">
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-titlebar" style="background:${hexWithOpacity(d.titleBar.color, d.titleBar.opacity)};color:${d.titleBar.textColor};font-family:${d.titleBar.font};${d.titleBar.bold?'font-weight:700;':''}${d.titleBar.italic?'font-style:italic;':''}${d.titleBar.underline?'text-decoration:underline;':''}">Title bar</div>
+          <div class="phone-hero" style="background:${theme.heroBg};color:#fff">SPACE!</div>
+          <div class="phone-buttons">
+            ${[1,2,3,4].map(n=>`
+              <div class="phone-btn" style="background:${hexWithOpacity(d.buttons.color, d.buttons.opacity)};color:${d.buttons.textColor};font-family:${d.buttons.font};${d.buttons.bold?'font-weight:700;':''}${d.buttons.italic?'font-style:italic;':''}${d.buttons.underline?'text-decoration:underline;':''}">Item ${n}</div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+      <button class="ai-assist-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z" fill="#fff"/></svg>
+        AI-assist
+      </button>
+    </div>
+
+    <aside class="design-properties">
+      <h3>Properties</h3>
+      ${propSection('TITLE BAR','titleBar', d.titleBar)}
+      ${propSection('BUTTONS','buttons', d.buttons, true)}
+    </aside>
+
+  </div>`;
+}
+
+function propSection(title, key, vals, withLayout){
+  return `<div class="prop-section">
+    <div class="prop-section-title">${title}</div>
+    ${withLayout ? `
+      <div class="prop-row">
+        <label class="prop-label">Layouts</label>
+        <div class="layout-select">
+          <span class="layout-select-pill">${vals.layout}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="#6B7A8F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>` : ''}
+    <div class="prop-row">
+      <label class="prop-label">Background color</label>
+      <span class="color-swatch" style="background:${vals.color}">
+        <input type="color" value="${vals.color}" data-prop="${key}.color">
+      </span>
+    </div>
+    <div class="prop-row">
+      <label class="prop-label">Background opacity</label>
+      <div class="opacity-slider">
+        <input type="range" min="0" max="100" value="${vals.opacity}" data-prop="${key}.opacity" style="--p:${vals.opacity}%">
+        <span class="opacity-value">${vals.opacity}%</span>
+      </div>
+    </div>
+    <div class="prop-row">
+      <label class="prop-label">Font Style</label>
+      <select class="prop-select" data-prop="${key}.font">
+        ${['Inter','Mona Sans','Helvetica','Georgia','Courier'].map(f=>`<option value="${f}" ${f===vals.font?'selected':''}>${f}</option>`).join('')}
+      </select>
+    </div>
+    <div class="prop-row">
+      <div class="style-buttons">
+        <button class="style-btn ${vals.bold?'active':''}" data-prop-toggle="${key}.bold"><b>B</b></button>
+        <button class="style-btn ${vals.italic?'active':''}" data-prop-toggle="${key}.italic"><i>I</i></button>
+        <button class="style-btn ${vals.underline?'active':''}" data-prop-toggle="${key}.underline"><u>U</u></button>
+      </div>
+    </div>
+    <div class="prop-row">
+      <label class="prop-label">Text color</label>
+      <span class="color-swatch" style="background:${vals.textColor};border-color:#E5ECF2">
+        <input type="color" value="${vals.textColor}" data-prop="${key}.textColor">
+      </span>
+    </div>
+  </div>`;
+}
+
+function hexWithOpacity(hex, opacity){
+  const o = Math.round((opacity/100) * 255).toString(16).padStart(2,'0');
+  return hex + o;
+}
+
+function bindDesignEvents(){
+  // Theme selection
+  app.querySelectorAll('[data-theme]').forEach(t=>t.addEventListener('click',e=>{
+    state.design.selectedTheme = parseInt(e.currentTarget.getAttribute('data-theme'),10);
+    render();
+  }));
+
+  // Property inputs
+  app.querySelectorAll('[data-prop]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const path = e.target.getAttribute('data-prop');
+      const [section, field] = path.split('.');
+      let val = e.target.value;
+      if(field === 'opacity') val = parseInt(val,10);
+      state.design[section][field] = val;
+      render();
+    });
+  });
+
+  // Bold/italic/underline toggles
+  app.querySelectorAll('[data-prop-toggle]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      const path = e.currentTarget.getAttribute('data-prop-toggle');
+      const [section, field] = path.split('.');
+      state.design[section][field] = !state.design[section][field];
+      render();
+    });
+  });
+}
+
+/* ---------------- BUILD STAGE ---------------- */
+const BUILD_TEMPLATES = {
+  essentials: [
+    { id:'inner-menu',     label:'Inner Menu',     icon:'menu' },
+    { id:'content-editor', label:'Content Editor', icon:'editor' },
+    { id:'web-link',       label:'Web Link',       icon:'web' },
+    { id:'photo-gallery',  label:'Photo Gallery',  icon:'photo' },
+    { id:'video-gallery',  label:'Video Gallery',  icon:'video' },
+    { id:'pdf-template',   label:'Pdf Template',   icon:'pdf' }
+  ],
+  coding: [
+    { id:'flash-cards', label:'Flash Cards', icon:'flash' },
+    { id:'hcj-builder', label:'HCJ Builder', icon:'hcj' },
+    { id:'quiz-template', label:'Quiz Template', icon:'quiz' }
+  ]
+};
+
+const TEMPLATE_ICONS = {
+  menu:   `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="6" y="8" width="32" height="6" rx="2" fill="#3B82F6"/><rect x="6" y="19" width="32" height="6" rx="2" fill="#60A5FA"/><rect x="6" y="30" width="32" height="6" rx="2" fill="#93C5FD"/></svg>`,
+  editor: `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="6" width="36" height="32" rx="3" fill="#fff" stroke="#3B82F6" stroke-width="2"/><rect x="8" y="11" width="28" height="3" fill="#3B82F6"/><rect x="8" y="18" width="20" height="2" fill="#93C5FD"/><rect x="8" y="23" width="24" height="2" fill="#93C5FD"/><rect x="8" y="28" width="16" height="2" fill="#93C5FD"/></svg>`,
+  web:    `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="6" width="36" height="32" rx="3" fill="#fff" stroke="#3B82F6" stroke-width="2"/><rect x="4" y="6" width="36" height="8" rx="3" fill="#3B82F6"/><rect x="8" y="9" width="3" height="2" fill="#fff"/><rect x="13" y="9" width="3" height="2" fill="#fff"/><text x="22" y="28" text-anchor="middle" fill="#3B82F6" font-family="Arial" font-size="9" font-weight="bold">http://</text></svg>`,
+  photo:  `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="8" width="36" height="28" rx="3" fill="#FBBF24"/><circle cx="14" cy="18" r="3" fill="#fff"/><path d="M4 36L18 22L26 30L40 18V36Z" fill="#3B82F6"/></svg>`,
+  video:  `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="8" width="36" height="28" rx="3" fill="#fff" stroke="#3B82F6" stroke-width="2"/><circle cx="22" cy="22" r="9" fill="#EC4899"/><path d="M19 17L28 22L19 27Z" fill="#fff"/></svg>`,
+  pdf:    `<svg width="44" height="44" viewBox="0 0 44 44"><path d="M10 4H28L36 12V40H10Z" fill="#3B82F6"/><path d="M28 4V12H36" fill="#1E40AF"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="Arial" font-size="9" font-weight="bold">PDF</text></svg>`,
+  flash:  `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="4" width="16" height="16" rx="2" fill="#FBBF24"/><rect x="24" y="4" width="16" height="16" rx="2" fill="#EC4899"/><rect x="4" y="24" width="16" height="16" rx="2" fill="#3B82F6"/><rect x="24" y="24" width="16" height="16" rx="2" fill="#10B981"/><text x="12" y="15" text-anchor="middle" fill="#fff" font-family="Arial" font-size="8" font-weight="bold">Q</text><text x="32" y="15" text-anchor="middle" fill="#fff" font-family="Arial" font-size="7" font-weight="bold">01</text></svg>`,
+  hcj:    `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="6" width="36" height="32" rx="3" fill="#1E2A3B"/><rect x="4" y="6" width="36" height="6" rx="3" fill="#3B82F6"/><text x="22" y="28" text-anchor="middle" fill="#3B82F6" font-family="monospace" font-size="11" font-weight="bold">&lt;/&gt;</text></svg>`,
+  quiz:   `<svg width="44" height="44" viewBox="0 0 44 44"><rect x="4" y="6" width="36" height="32" rx="3" fill="#3B82F6"/><text x="14" y="22" text-anchor="middle" fill="#FBBF24" font-family="Arial" font-size="11" font-weight="bold">A</text><text x="30" y="32" text-anchor="middle" fill="#10B981" font-family="Arial" font-size="11" font-weight="bold">B</text></svg>`
+};
+
+function renderBuildStage(){
+  const b = state.build;
+
+  return `<div class="build-layout">
+
+    <aside class="build-templates">
+      <div class="bt-tabs">
+        <button class="bt-tab active">Templates</button>
+        <button class="bt-tab">Custom Build</button>
+      </div>
+      <div class="bt-section">
+        <h4>Essentials</h4>
+        <div class="bt-grid">
+          ${BUILD_TEMPLATES.essentials.map(t=>`
+            <div class="bt-tile ${t.id===b.selectedTemplate?'selected':''}" data-build-template="${t.id}">
+              <div class="bt-tile-img">${TEMPLATE_ICONS[t.icon]}</div>
+              <div class="bt-tile-label">${t.label}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="bt-section">
+        <h4>Coding</h4>
+        <div class="bt-grid">
+          ${BUILD_TEMPLATES.coding.map(t=>`
+            <div class="bt-tile ${t.id===b.selectedTemplate?'selected':''}" data-build-template="${t.id}">
+              <div class="bt-tile-img">${TEMPLATE_ICONS[t.icon]}</div>
+              <div class="bt-tile-label">${t.label}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </aside>
+
+    <div class="build-canvas">
+      <div class="build-phone">
+        <div class="build-phone-notch"></div>
+        <div class="build-phone-screen">
+          <div class="build-phone-titlebar">${escapeHtml(b.screenName) || 'Screen Title'}</div>
+          <button class="build-add-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+            Add Button
+          </button>
+        </div>
+      </div>
+      <button class="my-screens-btn" id="openScreensPopupBtn">
+        My Screens (${b.screens.length})
+      </button>
+    </div>
+
+    <aside class="build-properties">
+      <div class="bp-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="#fff" stroke-width="2"/></svg>
+        App Preview
+      </div>
+      <div class="bp-body">
+        <h3>Properties</h3>
+        <div class="bp-section-title">
+          INNER MENU <span class="bp-info-icon">i</span>
+        </div>
+        <div class="bp-row">
+          <label class="bp-label">Screen Name<span class="bp-required">*</span></label>
+          <input class="bp-input" type="text" placeholder="Enter Screen Name" value="${escapeHtml(b.screenName)}" data-build-input="screenName">
+        </div>
+        <div class="bp-row">
+          <label class="bp-label">Link screen</label>
+          <select class="bp-select" data-build-input="linkScreen">
+            <option value="">Select screen</option>
+            <option value="home">Home Screen</option>
+            <option value="about">About</option>
+            <option value="contact">Contact</option>
+          </select>
+        </div>
+        <div class="bp-row">
+          <label class="bp-label">Background Opacity</label>
+          <div class="bp-slider">
+            <input type="range" min="0" max="100" value="${b.backgroundOpacity}" data-build-input="backgroundOpacity">
+            <span class="bp-slider-value">${b.backgroundOpacity}%</span>
+          </div>
+        </div>
+        <div class="bp-row">
+          <label class="bp-label">Button Color</label>
+          <span class="bp-color" style="background:${b.buttonColor}">
+            <input type="color" value="${b.buttonColor}" data-build-input="buttonColor">
+          </span>
+        </div>
+        <div class="bp-row">
+          <label class="bp-label">Button Text</label>
+          <input class="bp-input" type="text" placeholder="Enter Button Text" value="${escapeHtml(b.buttonText)}" data-build-input="buttonText">
+        </div>
+        <div class="bp-row">
+          <label class="bp-label">Button Text Color</label>
+          <span class="bp-color" style="background:${b.buttonTextColor}">
+            <input type="color" value="${b.buttonTextColor}" data-build-input="buttonTextColor">
+          </span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="build-saved-toast" id="buildSavedToast">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Screen saved!
+    </div>
+
+    <!-- Screens pull-up popup -->
+    <div class="screens-popup-backdrop" id="screensPopupBackdrop" data-popup-open="${b.screensPopupOpen?'1':'0'}"></div>
+    <div class="screens-popup" id="screensPopup" data-popup-open="${b.screensPopupOpen?'1':'0'}">
+      <div class="screens-popup-top">
+        <div class="screens-search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search your screens here…" value="${escapeHtml(b.screensSearch)}" data-screens-search>
+        </div>
+        <button class="screens-popup-close" id="closeScreensPopupBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Close
+        </button>
+      </div>
+      <div class="screens-list">
+        ${b.screens
+          .map((s,i)=>({s,i}))
+          .filter(({s})=>!b.screensSearch || s.name.toLowerCase().includes(b.screensSearch.toLowerCase()))
+          .map(({s,i})=>`
+            <div class="screen-tile ${i===b.activeScreenIdx?'active':''} ${s.isHome?'home':''}" data-screen-idx="${i}">
+              <div class="screen-tile-card">
+                ${s.isHome
+                  ? `<div class="home-icon"><span></span><span></span><span></span><span></span></div>`
+                  : `<div class="screen-tile-mini">
+                      <div class="screen-tile-icons"><div class="si-img"></div><div class="si-img"></div></div>
+                      <div class="row"><span class="dot g"></span><span class="dot b"></span><span class="dot b"></span></div>
+                      <div class="bar"></div>
+                    </div>`}
+              </div>
+              <div class="screen-tile-label">${escapeHtml(s.name)}</div>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+
+    <!-- Screen Info side panel -->
+    <div class="screen-info-panel" id="screenInfoPanel" data-panel-open="${b.screenInfoOpen?'1':'0'}">
+      <div class="screen-info-head">
+        <div class="screen-info-title">
+          <h2>Screen Info</h2>
+          <span class="screen-info-name" id="screenInfoName" title="Click to rename">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2.2"/><line x1="9" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+            <span>${escapeHtml(b.activeScreenIdx !== null && b.screens[b.activeScreenIdx] ? b.screens[b.activeScreenIdx].name : '')}</span>
+            <svg class="edit-pencil" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </div>
+        <button class="icon-btn" id="closeScreenInfoBtn">${I.close}</button>
+      </div>
+      <div class="screen-info-body">
+        <div class="screen-info-field">
+          <h4>This screen helps the user:</h4>
+          <input type="text" placeholder="e.g. Navigates the buttons…" value="${escapeHtml(b.activeScreenIdx !== null && b.screens[b.activeScreenIdx] ? b.screens[b.activeScreenIdx].info.helps : '')}" data-screen-info="helps">
+        </div>
+        <div class="screen-info-field">
+          <h4>Success looks like: (Ex: In a Choose Your Own Adventure-style app, the user finds a shelter in two clicks)</h4>
+          <input type="text" placeholder="e.g. Navigate to the desired screen…" value="${escapeHtml(b.activeScreenIdx !== null && b.screens[b.activeScreenIdx] ? b.screens[b.activeScreenIdx].info.success : '')}" data-screen-info="success">
+        </div>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+function bindBuildEvents(){
+  // Template selection — clears screen name, closes Screen Info panel (Guide untouched)
+  app.querySelectorAll('[data-build-template]').forEach(t=>{
+    t.addEventListener('click',e=>{
+      state.build.selectedTemplate = e.currentTarget.getAttribute('data-build-template');
+      state.build.screenName = '';
+      state.build.screenInfoOpen = false;
+      render();
+    });
+  });
+
+  // Property inputs — save without rerendering to keep focus
+  app.querySelectorAll('[data-build-input]').forEach(el=>{
+    const field = el.getAttribute('data-build-input');
+
+    el.addEventListener('input',e=>{
+      let val = e.target.value;
+      if(field === 'backgroundOpacity'){
+        val = parseInt(val,10);
+        const lbl = el.parentElement.querySelector('.bp-slider-value');
+        if(lbl) lbl.textContent = val + '%';
+      }
+      state.build[field] = val;
+      // Live-update phone titlebar without full rerender
+      if(field === 'screenName'){
+        const tb = app.querySelector('.build-phone-titlebar');
+        if(tb) tb.textContent = val.trim() ? val : 'Screen Title';
+      }
+      // Live-update color swatches
+      if(field === 'buttonColor' || field === 'buttonTextColor'){
+        el.parentElement.style.background = val;
+      }
+    });
+
+    // On blur or Enter for screenName → "save" → add to screens list + open Screen Info panel
+    if(field === 'screenName'){
+      const trySave = ()=>{
+        const name = state.build.screenName.trim();
+        if(!name) return;
+        // Check if this name already exists
+        const existingIdx = state.build.screens.findIndex(s=>s.name.toLowerCase() === name.toLowerCase());
+        if(existingIdx === -1){
+          // New screen — add to list
+          state.build.screens.push({ name, isHome:false, info:{ helps:'', success:'' } });
+          state.build.activeScreenIdx = state.build.screens.length - 1;
+          showSavedToast();
+          setTimeout(()=>{
+            state.build.screenInfoOpen = true;
+            state.guideOpen = false;          // mutual exclusion
+            render();
+          }, 700);
+        } else {
+          // Existing screen — just open its info panel
+          state.build.activeScreenIdx = existingIdx;
+          state.build.screenInfoOpen = true;
+          state.guideOpen = false;             // mutual exclusion
+          render();
+        }
+      };
+      el.addEventListener('blur', trySave);
+      el.addEventListener('keydown',e=>{
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          el.blur();
+        }
+      });
+    }
+  });
+
+  // My Screens button → open popup
+  const openScreensBtn = document.getElementById('openScreensPopupBtn');
+  if(openScreensBtn) openScreensBtn.addEventListener('click',()=>{
+    state.build.screensPopupOpen = true;
+    render();
+  });
+
+  // Close popup — ONLY via × button (no backdrop close)
+  const closeScreensBtn = document.getElementById('closeScreensPopupBtn');
+  if(closeScreensBtn) closeScreensBtn.addEventListener('click',()=>{
+    state.build.screensPopupOpen = false;
+    render();
+  });
+
+  // Search filtering — keep focus, no full rerender
+  const searchInput = app.querySelector('[data-screens-search]');
+  if(searchInput) searchInput.addEventListener('input',e=>{
+    state.build.screensSearch = e.target.value;
+    // Re-render only the screens list
+    const list = app.querySelector('.screens-list');
+    if(!list) return;
+    const b = state.build;
+    list.innerHTML = b.screens
+      .map((s,i)=>({s,i}))
+      .filter(({s})=>!b.screensSearch || s.name.toLowerCase().includes(b.screensSearch.toLowerCase()))
+      .map(({s,i})=>`
+        <div class="screen-tile ${i===b.activeScreenIdx?'active':''} ${s.isHome?'home':''}" data-screen-idx="${i}">
+          <div class="screen-tile-card">
+            ${s.isHome
+              ? `<div class="home-icon"><span></span><span></span><span></span><span></span></div>`
+              : `<div class="screen-tile-mini">
+                  <div class="screen-tile-icons"><div class="si-img"></div><div class="si-img"></div></div>
+                  <div class="row"><span class="dot g"></span><span class="dot b"></span><span class="dot b"></span></div>
+                  <div class="bar"></div>
+                </div>`}
+          </div>
+          <div class="screen-tile-label">${escapeHtml(s.name)}</div>
+        </div>
+      `).join('');
+    // Rewire screen tile clicks (popup stays open; only Guide closes)
+    list.querySelectorAll('[data-screen-idx]').forEach(t=>t.addEventListener('click',ev=>{
+      const idx = parseInt(ev.currentTarget.getAttribute('data-screen-idx'),10);
+      switchActiveScreen(idx);
+    }));
+  });
+
+  // Screen tile click → switches active screen + opens Screen Info panel
+  // Popup STAYS OPEN and DOES NOT re-animate. Guide closes (mutual exclusion).
+  app.querySelectorAll('[data-screen-idx]').forEach(t=>t.addEventListener('click',e=>{
+    const idx = parseInt(e.currentTarget.getAttribute('data-screen-idx'),10);
+    switchActiveScreen(idx);
+  }));
+
+  // Close Screen Info panel
+  const closeInfoBtn = document.getElementById('closeScreenInfoBtn');
+  if(closeInfoBtn) closeInfoBtn.addEventListener('click',()=>{
+    state.build.screenInfoOpen = false;
+    render();
+  });
+
+  // Screen Info inputs — save without re-render
+  app.querySelectorAll('[data-screen-info]').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      const key = e.target.getAttribute('data-screen-info');
+      const idx = state.build.activeScreenIdx;
+      if(idx !== null && state.build.screens[idx]){
+        state.build.screens[idx].info[key] = e.target.value;
+      }
+    });
+  });
+
+  // Click screen name pill → inline rename
+  const namePill = document.getElementById('screenInfoName');
+  if(namePill) namePill.addEventListener('click', e=>{
+    if(namePill.classList.contains('editing')) return;   // already editing
+    const idx = state.build.activeScreenIdx;
+    if(idx === null || !state.build.screens[idx]) return;
+    const screen = state.build.screens[idx];
+    if(screen.isHome) return;                             // Home Screen is not renameable
+
+    const labelSpan = namePill.querySelector('span');
+    const oldName = screen.name;
+
+    // Replace label with input
+    namePill.classList.add('editing');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = oldName;
+    input.maxLength = 40;
+    labelSpan.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit)=>{
+      const newName = input.value.trim();
+      const finalName = (commit && newName) ? newName : oldName;
+
+      // Update state
+      screen.name = finalName;
+      // Also sync the Properties screenName field if THIS is the displayed screen
+      if(state.build.screenName === oldName) state.build.screenName = finalName;
+
+      // Restore label
+      const newSpan = document.createElement('span');
+      newSpan.textContent = finalName;
+      input.replaceWith(newSpan);
+      namePill.classList.remove('editing');
+
+      // Update tile labels in popup (in-place)
+      document.querySelectorAll('[data-screen-idx]').forEach(t=>{
+        const i = parseInt(t.getAttribute('data-screen-idx'),10);
+        if(i === idx){
+          const lbl = t.querySelector('.screen-tile-label');
+          if(lbl) lbl.textContent = finalName;
+        }
+      });
+      // Update phone titlebar + Properties input
+      const tb = document.querySelector('.build-phone-titlebar');
+      if(tb && state.build.screenName === finalName) tb.textContent = finalName.trim() ? finalName : 'Screen Title';
+      const propInput = document.querySelector('[data-build-input="screenName"]');
+      if(propInput && propInput.value === oldName) propInput.value = finalName;
+      // Update My Screens button count text (count unchanged, but to keep label fresh)
+      const myBtn = document.getElementById('openScreensPopupBtn');
+      if(myBtn) myBtn.textContent = `My Screens (${state.build.screens.length})`;
+    };
+
+    input.addEventListener('blur', ()=>finish(true));
+    input.addEventListener('keydown', e=>{
+      if(e.key === 'Enter'){ e.preventDefault(); input.blur(); }
+      else if(e.key === 'Escape'){ input.value = oldName; input.blur(); }
+    });
+  });
+
+  // Trigger slide-in animations on next frame so transitions actually fire
+  // (elements render with data-popup-open attribute, .open class is added a frame later)
+  requestAnimationFrame(()=>{
+    const popup    = document.getElementById('screensPopup');
+    const backdrop = document.getElementById('screensPopupBackdrop');
+    const panel    = document.getElementById('screenInfoPanel');
+    if(popup    && popup.dataset.popupOpen === '1')    popup.classList.add('open');
+    if(backdrop && backdrop.dataset.popupOpen === '1') backdrop.classList.add('open');
+    if(panel    && panel.dataset.panelOpen === '1')    panel.classList.add('open');
+  });
+}
+
+function showSavedToast(){
+  const t = document.getElementById('buildSavedToast');
+  if(!t) return;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+// Switch active screen WITHOUT re-rendering the whole stage (so the popup
+// doesn't slide-up animate every time). Updates state, tile highlight, and
+// Screen Info panel inputs in-place. Mutual-exclusion: closes Guide.
+function switchActiveScreen(idx){
+  state.build.activeScreenIdx = idx;
+  state.build.screenInfoOpen = true;
+
+  // Update active tile highlight in the popup
+  document.querySelectorAll('[data-screen-idx]').forEach(t=>{
+    const i = parseInt(t.getAttribute('data-screen-idx'),10);
+    t.classList.toggle('active', i === idx);
+  });
+
+  // Close Guide if open (mutual exclusion) — re-render stage (popup will
+  // re-animate, but Guide-close transition is what's wanted here).
+  if(state.guideOpen){
+    state.guideOpen = false;
+    render();
+    return;
+  }
+
+  // Update Screen Info panel inputs with this screen's saved data
+  const screen = state.build.screens[idx];
+  if(screen){
+    const helps   = document.querySelector('[data-screen-info="helps"]');
+    const success = document.querySelector('[data-screen-info="success"]');
+    if(helps)   helps.value   = screen.info.helps   || '';
+    if(success) success.value = screen.info.success || '';
+    // Update screen name label in the head
+    const nameLbl = document.querySelector('#screenInfoName span');
+    if(nameLbl) nameLbl.textContent = screen.name;
+  }
+
+  // Make sure Screen Info panel is open (slide it in if it wasn't)
+  const panel = document.getElementById('screenInfoPanel');
+  if(panel) panel.classList.add('open');
+}
+
+/* ---------------- TEST STAGE ---------------- */
+const TEST_QUESTIONS = [
+  { id:'work', title:'Does it work?',
+    prompt:'Try every button and screen. Does everything do what it\'s supposed to?',
+    hint:'If something is broken or leads nowhere, fix it before sharing.',
+    placeholder:'What did you find? Any broken buttons or dead ends?' },
+  { id:'easy', title:'Is it easy to use?',
+    prompt:'Could someone figure out how to use your app without you explaining it?',
+    hint:'Watch someone try it without giving them any instructions.',
+    placeholder:'What confused people? What was easy?' },
+  { id:'purpose', title:'Is the purpose clear?',
+    prompt:'Within the first few seconds, would someone know what your app is for?',
+    hint:'If people have to ask "what does this do?" — that\'s a sign to clarify.',
+    placeholder:'Did testers understand the app right away? What did they say?' },
+  { id:'feedback', title:'Did you get real feedback?',
+    prompt:'Did someone outside your team actually try your app and give you specific feedback?',
+    hint:'"I liked it" doesn\'t count. Look for: what confused them, what they\'d change, what they loved.',
+    placeholder:'Who tested it? What specific feedback did they give?' },
+  { id:'improve', title:'Did you improve something?',
+    prompt:'Did you make at least one change based on what your testers told you?',
+    hint:'This is the whole point of testing — describe what you changed and why.',
+    placeholder:'Who tested it? What specific feedback did they give?' }
+];
+
+function renderTestStage(){
+  const t = state.test;
+  return `<div class="test-layout">
+
+    <aside class="test-sidebar">
+      <div class="test-side-card ${t.activeView==='review-guidelines'?'active':''}" data-test-view="review-guidelines">
+        <div class="test-side-icon review">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect x="3" y="3" width="22" height="22" rx="3" fill="#3B82F6"/>
+            <path d="M8 11l2 2 4-4M8 17l2 2 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="16" y="10" width="6" height="2" rx="1" fill="#fff" opacity=".7"/>
+            <rect x="16" y="16" width="6" height="2" rx="1" fill="#fff" opacity=".7"/>
+          </svg>
+        </div>
+        <div class="test-side-info">
+          <h4>Review Guidelines</h4>
+          <p>Analyze your performance on your app</p>
+        </div>
+      </div>
+      <div class="test-side-card ${t.activeView==='share-app'?'active':''}" data-test-view="share-app">
+        <div class="test-side-icon share">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="6" cy="14" r="3.5" fill="#3B82F6"/>
+            <circle cx="20" cy="6" r="3.5" fill="#FBBF24"/>
+            <circle cx="20" cy="22" r="3.5" fill="#EC4899"/>
+            <path d="M9 12l8-5M9 16l8 5" stroke="#1E2A3B" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="test-side-info">
+          <h4>Share App</h4>
+          <p>Generate a sharable link for your app</p>
+        </div>
+      </div>
+    </aside>
+
+    ${t.activeView === 'review-guidelines' ? `
+      <section class="test-questions">
+        <h2>Test your app</h2>
+        <p class="test-questions-sub">Go through each question. Add notes, then check it off when you're confident.</p>
+        ${TEST_QUESTIONS.map(q=>{
+          const checked = !!t.checks[q.id];
+          const note = t.notes[q.id] || '';
+          return `<div class="test-q-card ${checked?'checked':''}">
+            <div class="test-q-checkbox ${checked?'checked':''}" data-test-check="${q.id}">
+              ${checked?`<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+            </div>
+            <div class="test-q-content">
+              <div class="test-q-title ${checked?'struck':''}" data-test-check="${q.id}">${q.title}</div>
+              <div class="test-q-prompt">${q.prompt}</div>
+              <div class="test-q-hint">${q.hint}</div>
+              <input class="test-q-input" type="text" placeholder="${q.placeholder}" value="${escapeHtml(note)}" data-test-note="${q.id}">
+            </div>
+          </div>`;
+        }).join('')}
+      </section>
+
+      <section class="test-preview">
+        <div class="test-device-toggle">
+          <button class="test-device-btn ${t.deviceView==='phone'?'active':''}" data-test-device="phone">Phone</button>
+          <button class="test-device-btn ${t.deviceView==='tablet'?'active':''}" data-test-device="tablet">Tablet</button>
+        </div>
+        <div class="test-phone ${t.deviceView==='tablet'?'tablet':''}">
+          <div class="test-phone-screen">
+            <div class="test-phone-titlebar">Ideal App</div>
+            <div class="test-phone-hero">SPACE!</div>
+            <div class="test-phone-buttons">
+              <div class="test-phone-btn">About</div>
+              <div class="test-phone-btn">Button Text</div>
+            </div>
+            <div class="test-phone-decor"></div>
+          </div>
+        </div>
+      </section>
+    ` : `
+      <section class="test-questions test-share-section">
+        <h2>Share App</h2>
+        <div class="share-link-card">
+          <div class="share-link-box">${escapeHtml('https://qaangular.azurewebsites.net/devicepreview/?appId=VTJGc2RHVmtYMTk5emxhOWRhZk11N0E4M0c3WEZ5Z3ovZ3ZmVFZTRmszOD0=')}</div>
+        </div>
+        <div class="share-copy-row">
+          <button class="share-copy-btn" id="copyShareLinkBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+            Copy Link
+          </button>
+        </div>
+        <div class="share-qr-wrap">
+          <div class="share-qr">
+            <!-- Decorative QR code: 33x33 grid with embedded centered logo -->
+            <svg width="240" height="240" viewBox="0 0 33 33" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+              <rect width="33" height="33" fill="#fff"/>
+              <g fill="#000">
+                <!-- Top-left finder -->
+                <rect x="0"  y="0" width="7" height="7"/>
+                <rect x="1"  y="1" width="5" height="5" fill="#fff"/>
+                <rect x="2"  y="2" width="3" height="3"/>
+                <!-- Top-right finder -->
+                <rect x="26" y="0" width="7" height="7"/>
+                <rect x="27" y="1" width="5" height="5" fill="#fff"/>
+                <rect x="28" y="2" width="3" height="3"/>
+                <!-- Bottom-left finder -->
+                <rect x="0"  y="26" width="7" height="7"/>
+                <rect x="1"  y="27" width="5" height="5" fill="#fff"/>
+                <rect x="2"  y="28" width="3" height="3"/>
+                <!-- Timing patterns -->
+                <rect x="8"  y="6" width="1" height="1"/><rect x="10" y="6" width="1" height="1"/>
+                <rect x="12" y="6" width="1" height="1"/><rect x="14" y="6" width="1" height="1"/>
+                <rect x="16" y="6" width="1" height="1"/><rect x="18" y="6" width="1" height="1"/>
+                <rect x="20" y="6" width="1" height="1"/><rect x="22" y="6" width="1" height="1"/>
+                <rect x="24" y="6" width="1" height="1"/>
+                <rect x="6"  y="8" width="1" height="1"/><rect x="6"  y="10" width="1" height="1"/>
+                <rect x="6"  y="12" width="1" height="1"/><rect x="6"  y="14" width="1" height="1"/>
+                <rect x="6"  y="16" width="1" height="1"/><rect x="6"  y="18" width="1" height="1"/>
+                <rect x="6"  y="20" width="1" height="1"/><rect x="6"  y="22" width="1" height="1"/>
+                <rect x="6"  y="24" width="1" height="1"/>
+                <!-- Pseudo-random data pattern (decorative) -->
+                <rect x="8" y="0" width="1" height="1"/><rect x="10" y="0" width="2" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="2" height="1"/><rect x="19" y="0" width="1" height="1"/><rect x="22" y="0" width="2" height="1"/>
+                <rect x="9" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="14" y="1" width="2" height="1"/><rect x="18" y="1" width="1" height="1"/><rect x="21" y="1" width="2" height="1"/><rect x="24" y="1" width="1" height="1"/>
+                <rect x="8" y="2" width="2" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="15" y="2" width="1" height="1"/><rect x="17" y="2" width="1" height="1"/><rect x="20" y="2" width="1" height="1"/><rect x="23" y="2" width="2" height="1"/>
+                <rect x="10" y="3" width="1" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="15" y="3" width="2" height="1"/><rect x="19" y="3" width="2" height="1"/><rect x="22" y="3" width="1" height="1"/>
+                <rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="2" height="1"/><rect x="14" y="4" width="1" height="1"/><rect x="17" y="4" width="2" height="1"/><rect x="21" y="4" width="1" height="1"/><rect x="24" y="4" width="1" height="1"/>
+                <rect x="9" y="5" width="2" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="15" y="5" width="1" height="1"/><rect x="18" y="5" width="2" height="1"/><rect x="22" y="5" width="2" height="1"/>
+                <rect x="8" y="8" width="2" height="1"/><rect x="11" y="8" width="1" height="1"/><rect x="14" y="8" width="2" height="1"/><rect x="17" y="8" width="1" height="1"/><rect x="20" y="8" width="2" height="1"/><rect x="24" y="8" width="1" height="1"/>
+                <rect x="10" y="9" width="1" height="1"/><rect x="13" y="9" width="2" height="1"/><rect x="16" y="9" width="1" height="1"/><rect x="19" y="9" width="1" height="1"/><rect x="22" y="9" width="1" height="1"/><rect x="25" y="9" width="2" height="1"/>
+                <rect x="8" y="10" width="1" height="1"/><rect x="11" y="10" width="2" height="1"/><rect x="15" y="10" width="1" height="1"/><rect x="17" y="10" width="2" height="1"/><rect x="21" y="10" width="2" height="1"/><rect x="25" y="10" width="1" height="1"/>
+                <rect x="9" y="11" width="1" height="1"/><rect x="12" y="11" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/><rect x="16" y="11" width="2" height="1"/><rect x="20" y="11" width="1" height="1"/><rect x="23" y="11" width="1" height="1"/><rect x="26" y="11" width="2" height="1"/>
+                <rect x="8" y="12" width="2" height="1"/><rect x="13" y="12" width="2" height="1"/><rect x="18" y="12" width="1" height="1"/><rect x="21" y="12" width="1" height="1"/><rect x="24" y="12" width="2" height="1"/><rect x="28" y="12" width="1" height="1"/>
+                <rect x="11" y="13" width="1" height="1"/><rect x="15" y="13" width="1" height="1"/><rect x="17" y="13" width="1" height="1"/><rect x="19" y="13" width="2" height="1"/><rect x="23" y="13" width="2" height="1"/><rect x="27" y="13" width="1" height="1"/>
+                <rect x="8" y="14" width="1" height="1"/><rect x="10" y="14" width="2" height="1"/><rect x="14" y="14" width="1" height="1"/><rect x="16" y="14" width="1" height="1"/><rect x="20" y="14" width="1" height="1"/><rect x="22" y="14" width="1" height="1"/><rect x="25" y="14" width="2" height="1"/><rect x="29" y="14" width="1" height="1"/>
+                <rect x="9" y="15" width="1" height="1"/><rect x="12" y="15" width="1" height="1"/><rect x="15" y="15" width="2" height="1"/><rect x="18" y="15" width="1" height="1"/><rect x="21" y="15" width="2" height="1"/><rect x="26" y="15" width="1" height="1"/><rect x="28" y="15" width="2" height="1"/>
+                <rect x="8" y="16" width="2" height="1"/><rect x="13" y="16" width="2" height="1"/><rect x="17" y="16" width="1" height="1"/><rect x="20" y="16" width="1" height="1"/><rect x="23" y="16" width="1" height="1"/><rect x="25" y="16" width="1" height="1"/><rect x="27" y="16" width="2" height="1"/>
+                <rect x="10" y="17" width="1" height="1"/><rect x="14" y="17" width="1" height="1"/><rect x="16" y="17" width="1" height="1"/><rect x="19" y="17" width="2" height="1"/><rect x="22" y="17" width="2" height="1"/><rect x="26" y="17" width="2" height="1"/><rect x="30" y="17" width="1" height="1"/>
+                <rect x="8" y="18" width="1" height="1"/><rect x="11" y="18" width="2" height="1"/><rect x="15" y="18" width="1" height="1"/><rect x="17" y="18" width="2" height="1"/><rect x="21" y="18" width="1" height="1"/><rect x="24" y="18" width="2" height="1"/><rect x="28" y="18" width="1" height="1"/><rect x="31" y="18" width="1" height="1"/>
+                <rect x="9" y="19" width="2" height="1"/><rect x="13" y="19" width="1" height="1"/><rect x="16" y="19" width="2" height="1"/><rect x="20" y="19" width="2" height="1"/><rect x="25" y="19" width="1" height="1"/><rect x="27" y="19" width="1" height="1"/><rect x="30" y="19" width="2" height="1"/>
+                <rect x="8" y="20" width="2" height="1"/><rect x="12" y="20" width="1" height="1"/><rect x="14" y="20" width="2" height="1"/><rect x="18" y="20" width="1" height="1"/><rect x="22" y="20" width="1" height="1"/><rect x="24" y="20" width="1" height="1"/><rect x="26" y="20" width="2" height="1"/><rect x="29" y="20" width="1" height="1"/><rect x="32" y="20" width="1" height="1"/>
+                <rect x="11" y="21" width="1" height="1"/><rect x="13" y="21" width="2" height="1"/><rect x="17" y="21" width="1" height="1"/><rect x="19" y="21" width="2" height="1"/><rect x="23" y="21" width="2" height="1"/><rect x="28" y="21" width="2" height="1"/><rect x="31" y="21" width="1" height="1"/>
+                <rect x="8" y="22" width="1" height="1"/><rect x="10" y="22" width="1" height="1"/><rect x="13" y="22" width="1" height="1"/><rect x="15" y="22" width="2" height="1"/><rect x="18" y="22" width="2" height="1"/><rect x="22" y="22" width="1" height="1"/><rect x="25" y="22" width="2" height="1"/><rect x="29" y="22" width="2" height="1"/>
+                <rect x="9" y="23" width="1" height="1"/><rect x="11" y="23" width="2" height="1"/><rect x="14" y="23" width="1" height="1"/><rect x="17" y="23" width="1" height="1"/><rect x="20" y="23" width="1" height="1"/><rect x="22" y="23" width="2" height="1"/><rect x="26" y="23" width="1" height="1"/><rect x="28" y="23" width="2" height="1"/><rect x="31" y="23" width="1" height="1"/>
+                <rect x="8" y="24" width="2" height="1"/><rect x="12" y="24" width="2" height="1"/><rect x="15" y="24" width="1" height="1"/><rect x="18" y="24" width="2" height="1"/><rect x="21" y="24" width="1" height="1"/><rect x="25" y="24" width="2" height="1"/><rect x="29" y="24" width="1" height="1"/><rect x="32" y="24" width="1" height="1"/>
+                <rect x="8" y="25" width="1" height="1"/><rect x="10" y="25" width="1" height="1"/><rect x="12" y="25" width="1" height="1"/><rect x="14" y="25" width="2" height="1"/><rect x="17" y="25" width="2" height="1"/><rect x="20" y="25" width="2" height="1"/><rect x="24" y="25" width="1" height="1"/><rect x="26" y="25" width="2" height="1"/><rect x="30" y="25" width="2" height="1"/>
+                <!-- Bottom rows -->
+                <rect x="8" y="26" width="2" height="1"/><rect x="11" y="26" width="2" height="1"/><rect x="14" y="26" width="1" height="1"/><rect x="16" y="26" width="2" height="1"/><rect x="19" y="26" width="2" height="1"/><rect x="23" y="26" width="2" height="1"/><rect x="27" y="26" width="1" height="1"/><rect x="29" y="26" width="2" height="1"/><rect x="32" y="26" width="1" height="1"/>
+                <rect x="9" y="27" width="1" height="1"/><rect x="13" y="27" width="2" height="1"/><rect x="16" y="27" width="1" height="1"/><rect x="18" y="27" width="1" height="1"/><rect x="22" y="27" width="2" height="1"/><rect x="25" y="27" width="1" height="1"/><rect x="27" y="27" width="2" height="1"/><rect x="31" y="27" width="1" height="1"/>
+                <rect x="8" y="28" width="1" height="1"/><rect x="11" y="28" width="2" height="1"/><rect x="14" y="28" width="1" height="1"/><rect x="17" y="28" width="2" height="1"/><rect x="20" y="28" width="1" height="1"/><rect x="22" y="28" width="2" height="1"/><rect x="26" y="28" width="2" height="1"/><rect x="30" y="28" width="1" height="1"/>
+                <rect x="9" y="29" width="2" height="1"/><rect x="13" y="29" width="1" height="1"/><rect x="15" y="29" width="2" height="1"/><rect x="18" y="29" width="2" height="1"/><rect x="21" y="29" width="1" height="1"/><rect x="24" y="29" width="2" height="1"/><rect x="28" y="29" width="2" height="1"/><rect x="32" y="29" width="1" height="1"/>
+                <rect x="8" y="30" width="2" height="1"/><rect x="12" y="30" width="1" height="1"/><rect x="14" y="30" width="1" height="1"/><rect x="17" y="30" width="1" height="1"/><rect x="19" y="30" width="2" height="1"/><rect x="23" y="30" width="1" height="1"/><rect x="25" y="30" width="2" height="1"/><rect x="29" y="30" width="1" height="1"/><rect x="31" y="30" width="2" height="1"/>
+                <rect x="11" y="31" width="1" height="1"/><rect x="13" y="31" width="2" height="1"/><rect x="16" y="31" width="2" height="1"/><rect x="20" y="31" width="1" height="1"/><rect x="22" y="31" width="2" height="1"/><rect x="26" y="31" width="1" height="1"/><rect x="28" y="31" width="2" height="1"/><rect x="31" y="31" width="1" height="1"/>
+                <rect x="8" y="32" width="1" height="1"/><rect x="10" y="32" width="2" height="1"/><rect x="14" y="32" width="2" height="1"/><rect x="17" y="32" width="1" height="1"/><rect x="19" y="32" width="2" height="1"/><rect x="23" y="32" width="2" height="1"/><rect x="27" y="32" width="2" height="1"/><rect x="30" y="32" width="1" height="1"/><rect x="32" y="32" width="1" height="1"/>
+              </g>
+              <!-- Embedded centered app icon (cleared whitespace background) -->
+              <rect x="14" y="14" width="5" height="5" fill="#fff"/>
+              <rect x="14.5" y="14.5" width="4" height="4" rx=".6" fill="#3B82F6"/>
+              <circle cx="15.6" cy="15.6" r=".5" fill="#FBBF24"/>
+              <path d="M14.7 18.4 L15.6 17.2 L16.4 18 L17.5 16.7 L18.4 18.4 Z" fill="#1E40AF"/>
+            </svg>
+          </div>
+          <p class="share-bookmark-note">Don't forget to bookmark your app once you scan the QR code on your phone to add it to your phone's home-screen</p>
+        </div>
+      </section>
+
+      <section class="test-preview">
+        <div class="test-device-toggle">
+          <button class="test-device-btn ${t.deviceView==='phone'?'active':''}" data-test-device="phone">Phone</button>
+          <button class="test-device-btn ${t.deviceView==='tablet'?'active':''}" data-test-device="tablet">Tablet</button>
+        </div>
+        <div class="test-phone ${t.deviceView==='tablet'?'tablet':''}">
+          <div class="test-phone-screen">
+            <div class="test-phone-titlebar">Ideal App</div>
+            <div class="test-phone-hero">SPACE!</div>
+            <div class="test-phone-buttons">
+              <div class="test-phone-btn">About</div>
+              <div class="test-phone-btn">Button Text</div>
+            </div>
+            <div class="test-phone-decor"></div>
+          </div>
+        </div>
+      </section>
+    `}
+
+  </div>`;
+}
+
+function bindTestEvents(){
+  // Sidebar view toggle
+  app.querySelectorAll('[data-test-view]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      state.test.activeView = e.currentTarget.getAttribute('data-test-view');
+      render();
+    });
+  });
+
+  // Device view toggle (phone/tablet)
+  app.querySelectorAll('[data-test-device]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      state.test.deviceView = e.currentTarget.getAttribute('data-test-device');
+      render();
+    });
+  });
+
+  // Checkbox toggles (both checkbox AND title clickable)
+  app.querySelectorAll('[data-test-check]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      const id = e.currentTarget.getAttribute('data-test-check');
+      state.test.checks[id] = !state.test.checks[id];
+      render();
+    });
+  });
+
+  // Note inputs (no rerender to keep focus)
+  app.querySelectorAll('[data-test-note]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const id = e.target.getAttribute('data-test-note');
+      state.test.notes[id] = e.target.value;
+    });
+  });
+
+  // Copy Link button (Share App view)
+  const copyBtn = document.getElementById('copyShareLinkBtn');
+  if(copyBtn) copyBtn.addEventListener('click',()=>{
+    const url = 'https://qaangular.azurewebsites.net/devicepreview/?appId=VTJGc2RHVmtYMTk5emxhOWRhZk11N0E4M0c3WEZ5Z3ovZ3ZmVFZTRmszOD0=';
+    try {
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).catch(()=>{});
+      }
+    } catch(e){}
+    showCopyLinkToast();
+  });
+}
+
+function showCopyLinkToast(){
+  // Create the toast lazily if missing
+  let t = document.getElementById('shareCopyToast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'shareCopyToast';
+    t.className = 'share-copy-toast';
+    t.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Link copied!`;
+    document.body.appendChild(t);
+  }
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* ---------------- LAUNCH STAGE ---------------- */
+function renderLaunchStage(){
+  const l = state.launch;
+  return `<div class="launch-layout">
+
+    <aside class="launch-sidebar">
+      <div class="launch-side-card ${l.activeView==='description'?'active':''}" data-launch-view="description">
+        <div class="launch-side-icon">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+            <rect x="6" y="8" width="34" height="30" rx="3" fill="#FBBF24"/>
+            <rect x="10" y="13" width="22" height="3" rx="1" fill="#fff"/>
+            <rect x="10" y="20" width="26" height="2" rx="1" fill="#fff" opacity=".7"/>
+            <rect x="10" y="25" width="20" height="2" rx="1" fill="#fff" opacity=".7"/>
+            <rect x="10" y="30" width="22" height="2" rx="1" fill="#fff" opacity=".7"/>
+            <rect x="3" y="5" width="34" height="30" rx="3" fill="#3B82F6" opacity=".5"/>
+          </svg>
+        </div>
+        <div class="launch-side-info">
+          <h4>App Description and Tags</h4>
+        </div>
+      </div>
+      <div class="launch-side-card ${l.activeView==='pitch'?'active':''}" data-launch-view="pitch">
+        <div class="launch-side-icon">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+            <rect x="6" y="8" width="34" height="30" rx="3" fill="#3B82F6"/>
+            <path d="M16 23l8-6v12l-8-6z" fill="#fff"/>
+            <path d="M28 18l4 5-4 5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="launch-side-info">
+          <h4>How to write a pitch</h4>
+        </div>
+      </div>
+      <div class="launch-side-card ${l.activeView==='reflection'?'active':''}" data-launch-view="reflection">
+        <div class="launch-side-icon">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+            <rect x="6" y="8" width="34" height="30" rx="3" fill="#3B82F6"/>
+            <path d="M16 18a7 7 0 0 1 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <path d="M30 28a7 7 0 0 1-7 7" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <path d="M13 21l3-3 3 3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M33 25l-3 3-3-3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="launch-side-info">
+          <h4>Reflection: The Big Picture</h4>
+        </div>
+      </div>
+    </aside>
+
+    <section class="launch-content">
+      ${renderLaunchView()}
+    </section>
+
+    <section class="launch-preview">
+      <div class="launch-device-toggle">
+        <button class="launch-device-btn ${l.deviceView==='phone'?'active':''}" data-launch-device="phone">Phone</button>
+        <button class="launch-device-btn ${l.deviceView==='tablet'?'active':''}" data-launch-device="tablet">Tablet</button>
+      </div>
+      <div class="launch-phone ${l.deviceView==='tablet'?'tablet':''}">
+        <div class="launch-phone-screen">
+          <div class="launch-phone-titlebar">Ideal App</div>
+          <div class="launch-phone-hero">SPACE!</div>
+          <div class="launch-phone-buttons">
+            <div class="launch-phone-btn">About</div>
+            <div class="launch-phone-btn">Button Text</div>
+          </div>
+          <div class="launch-phone-decor"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>`;
+}
+
+function renderLaunchView(){
+  const l = state.launch;
+
+  if(l.activeView === 'description'){
+    return `
+      <h2>App Description and Tags</h2>
+      <div class="launch-app-card">
+        <div class="launch-app-img"></div>
+        <div class="launch-app-info">
+          <h3 class="launch-app-name">My first app</h3>
+          <span class="launch-app-author">
+            <span class="author-dot">i</span>
+            by inactive student3
+          </span>
+          <div class="launch-app-meta-row">
+            <span class="launch-app-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+              Inactive School 1
+            </span>
+            <span class="launch-app-divider"></span>
+            <span class="launch-app-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Apr 15, 2026
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <h4 class="launch-section-label">App Description</h4>
+      <textarea class="launch-textarea" placeholder="Describe your app..." data-launch-input="appDescription">${escapeHtml(l.appDescription)}</textarea>
+
+      <h4 class="launch-section-label">Add Tags</h4>
+      <div class="launch-tags-wrap" id="launchTagsWrap">
+        ${l.tags.map((tag,i)=>`
+          <span class="launch-tag">
+            ${escapeHtml(tag)}
+            <span class="launch-tag-x" data-launch-remove-tag="${i}">×</span>
+          </span>
+        `).join('')}
+        <input class="launch-tag-input" type="text" placeholder="${l.tags.length?'Add another tag…':'New tag…'}" value="${escapeHtml(l.newTag)}" data-launch-input="newTag" id="launchTagInput">
+      </div>
+    `;
+  }
+
+  if(l.activeView === 'reflection'){
+    return `
+      <h2>You did it. Now look back.</h2>
+      <p class="launch-reflection-intro">Great designers don't just build apps — they reflect on how they got there. Answer one question for each part of your journey.</p>
+      ${REFLECTION_SECTIONS.map(s=>`
+        <div class="launch-reflection-card">
+          <h3>${s.title}</h3>
+          <p class="launch-reflection-prompt">${s.body}</p>
+          <textarea class="launch-reflection-textarea" placeholder="Write your answer here…" data-reflection="${s.key}">${escapeHtml(state.reflection[s.key]||'')}</textarea>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  // pitch view (default)
+  return `
+    <h2>Crafting an Elevator Pitch</h2>
+    <p class="launch-pitch-intro">Imagine you step into a lift with someone really important — a teacher, a judge, or even an investor. You only have 30 seconds before the doors open. Can you explain your app clearly enough to make them say "Wow, tell me more!"?<br>That's an elevator pitch — a short, exciting summary of your app that anyone can understand in under a minute!</p>
+
+    <div class="launch-pitch-card">
+      <div class="pitch-block">
+        <h3>How to Do One</h3>
+        <p>Think of it like filling in 3 blanks:</p>
+      </div>
+
+      <div class="pitch-block">
+        <p><strong>1. The Problem</strong> Start with your user's struggle — not your app!</p>
+        <p class="pitch-quote">"My friend always forgot which days football practice was on…"</p>
+      </div>
+
+      <div class="pitch-block">
+        <p><strong>2. Your App</strong> Now introduce your solution in one simple sentence.</p>
+        <p class="pitch-quote">"…so I built an app that sends them automatic reminders!"</p>
+      </div>
+
+      <div class="pitch-block">
+        <p><strong>3. The Impact</strong> End with why it matters.</p>
+        <p class="pitch-quote">"Now they never miss practice!"</p>
+      </div>
+
+      <div class="pitch-block">
+        <h3>Put It All Together</h3>
+        <p class="pitch-quote">"My friend always forgot which days football practice was on — so I built an app that sends automatic reminders. Now they never miss practice!"</p>
+      </div>
+
+      <div class="pitch-block">
+        <h3>Remember!</h3>
+        <ul>
+          <li>Don't start with "My app has these features…" — boring!</li>
+          <li>Start with a real person and a real problem — exciting!</li>
+          <li>Practice saying it out loud until it feels natural!</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+function bindLaunchEvents(){
+  // Sidebar view toggle
+  app.querySelectorAll('[data-launch-view]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      state.launch.activeView = e.currentTarget.getAttribute('data-launch-view');
+      render();
+    });
+  });
+
+  // Device toggle
+  app.querySelectorAll('[data-launch-device]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      state.launch.deviceView = e.currentTarget.getAttribute('data-launch-device');
+      render();
+    });
+  });
+
+  // Text inputs (no rerender to keep focus)
+  app.querySelectorAll('[data-launch-input]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const field = e.target.getAttribute('data-launch-input');
+      state.launch[field] = e.target.value;
+    });
+  });
+
+  // Reflection textareas (no rerender to keep focus)
+  app.querySelectorAll('[data-reflection]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const key = e.target.getAttribute('data-reflection');
+      state.reflection[key] = e.target.value;
+    });
+  });
+
+  // Tag input — Enter to add
+  const tagInput = document.getElementById('launchTagInput');
+  if(tagInput){
+    tagInput.addEventListener('keydown',e=>{
+      if(e.key === 'Enter' || e.key === ','){
+        e.preventDefault();
+        const val = state.launch.newTag.trim().replace(/,$/,'');
+        if(val && !state.launch.tags.includes(val)){
+          state.launch.tags.push(val);
+          state.launch.newTag = '';
+          render();
+        }
+      }
+    });
+  }
+
+  // Remove tag
+  app.querySelectorAll('[data-launch-remove-tag]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      const i = parseInt(e.currentTarget.getAttribute('data-launch-remove-tag'),10);
+      state.launch.tags.splice(i,1);
+      render();
+    });
+  });
+}
+
+
+const mindInstances = {};
+state.mindmaps = state.mindmaps || {};
+
+/* Resilient adapter: works for both flat mmp API (cedoor v0.2.20) and
+   nested map.nodes.* API (TeamMapper fork). */
+function mmpApi(map){
+  const n = map.nodes || map;           // nested or flat
+  const h = map.history || map;         // history namespace varies
+  const pick = (obj, ...names)=>{
+    for(const name of names){ if(typeof obj[name]==='function') return obj[name].bind(obj); }
+    return ()=>{};
+  };
+  return {
+    raw: map,
+    addNode:    pick(n, 'addNode'),
+    removeNode: pick(n, 'removeNode'),
+    selectNode: pick(n, 'selectNode'),
+    updateNode: pick(n, 'updateNode'),
+    getSelected:pick(n, 'getSelectedNode'),
+    copy:       pick(n, 'copyNode'),
+    cut:        pick(n, 'cutNode'),
+    paste:      pick(n, 'pasteNode'),
+    zoomIn:     pick(map, 'zoomIn'),
+    zoomOut:    pick(map, 'zoomOut'),
+    center:     pick(map, 'center'),
+    undo:       pick(h, 'undo'),
+    redo:       pick(h, 'redo'),
+    on:         (ev,cb)=>{ try{ map.on && map.on(ev,cb); }catch(e){} },
+    asJSON:     ()=>{ try{ return (map.exports||map).asJSON?.(); }catch(e){} },
+  };
+}
+
+function initMindmaps(){
+  const nodes = document.querySelectorAll('[data-mindmap]');
+  if(!nodes.length) return;
+  if(!window.mmp || !window.d3){
+    setTimeout(initMindmaps, 80);
+    return;
+  }
+  nodes.forEach(node=>{
+    const key = node.getAttribute('data-mindmap');
+    const mapId = node.id;
+
+    // If an instance already exists but its DOM element is no longer in the
+    // live DOM (accordion was toggled), drop it so we can re-init on this
+    // fresh element. This is the root cause of "nodes disappearing after
+    // closing and reopening Ideate".
+    if(mindInstances[key]){
+      const prevEl = mindInstances[key].element;
+      if(prevEl && document.contains(prevEl)) return; // still valid
+      try { mindInstances[key].map.remove?.(); } catch(e){}
+      delete mindInstances[key];
+    }
+
+    try {
+      const map = window.mmp.create(mapId, {
+        centerOnResize: true, drag: true, zoom: true,
+        defaultNode: {
+          name: 'Subtopic',
+          colors:   { name:'#1E2A3B', background:'#FFFFFF', branch:'#577BFC' },
+          font:     { size: 11, style:'normal', weight:'normal' },
+          locked: false
+        },
+        rootNode: {
+          name: 'My Problem Statement',
+          colors: { name:'#1E2A3B', background:'#FFFFFF', branch:'' },
+          font:   { size: 12, style:'normal', weight:'600' },
+          locked: true   // root cannot be removed
+        }
+      });
+
+      const api = mmpApi(map);
+      const saved = state.mindmaps[key];
+
+      // Branch-thickness coefficient — lower = thinner branches
+      const BRANCH_K = 0.3;
+
+      if(saved){
+        // Restore user's previous map after accordion toggle
+        try { map.new(saved); } catch(e){ console.warn('[mmp] restore failed:', e); map.new(); }
+      } else {
+        map.new();
+        // Seed Solution 1–3 only on first init
+        try {
+          const root = api.getSelected();
+          const rootId = root && root.id;
+          const branchColors = ['#24B47E','#EF4444','#2E8BF5'];
+          ['Solution 1','Solution 2','Solution 3']
+            .forEach((name,i)=>{
+              if(rootId) api.selectNode(rootId);
+              api.addNode({ name, colors:{ branch: branchColors[i] }, k: BRANCH_K });
+            });
+          if(rootId) api.selectNode(rootId);
+        } catch(e){ console.warn('[mmp] seed failed:', e); }
+      }
+
+      // Post-process SVG: mmp paints branches as THICK tapered filled paths.
+      // We replace each branch's fill with a thin stroked version — this
+      // ignores any internal library settings and guarantees thin branches.
+      thinBranches(node);
+      const mo = new MutationObserver(()=> thinBranches(node));
+      try { mo.observe(node, { childList:true, subtree:true }); } catch(e){}
+
+      try { api.center(); } catch(e){}
+
+      mindInstances[key] = { map, api, element: node };
+      wireMmpControls(node.closest('[data-mmp-wrap]'), api);
+
+      // Save on any change + refresh slider to match new selection
+      ['nodeUpdate','nodeCreate','nodeRemove','nodeSelect','mmp-node-update','create','remove','update','select']
+        .forEach(ev=> api.on(ev, ()=>{
+          state.mindmaps[key] = api.asJSON();
+          flashSaved(node.closest('[data-mmp-wrap]'));
+          syncSliderToSelection(node.closest('[data-mmp-wrap]'), api);
+        }));
+    } catch(err) {
+      console.error('[mmp] init failed:', err);
+      node.innerHTML = '<div style="padding:40px;color:#888;text-align:center">Mind map failed to load. Check console.</div>';
+    }
+  });
+}
+
+/**
+ * Replace mmp's thick tapered branch fills with a thin stroke.
+ *   - Branches are SVG <path> elements that have a fill color set
+ *   - Node shapes are <ellipse> / <rect>, not <path>, so they're unaffected
+ *   - We keep a "center line" geometry by re-deriving it from the path's
+ *     start and end points (using getPointAtLength at 0 and total length)
+ *     and draw a smooth cubic curve between them.
+ */
+function thinBranches(containerEl){
+  const svg = containerEl.querySelector('svg');
+  if(!svg) return;
+  svg.querySelectorAll('path').forEach(p => {
+    if(p.dataset.thinned === '1') return;          // already processed
+    const fill = p.getAttribute('fill') || getComputedStyle(p).fill;
+    if(!fill || fill === 'none' || fill === 'transparent' || fill === 'rgba(0, 0, 0, 0)') return;
+    try {
+      const len = p.getTotalLength();
+      if(!len) return;
+      const a = p.getPointAtLength(0);
+      const b = p.getPointAtLength(len * 0.5);     // midpoint of the filled shape = curve midpoint
+      const c = p.getPointAtLength(len);
+      // The filled branch is a closed shape: start == end. Use a quarter/three-quarter sample to get curve ends.
+      const start = p.getPointAtLength(len * 0.02);
+      const end   = p.getPointAtLength(len * 0.48);
+      const cx1 = start.x + (end.x - start.x) * 0.55;
+      const cy1 = start.y;
+      const cx2 = start.x + (end.x - start.x) * 0.45;
+      const cy2 = end.y;
+      const newD = `M${start.x},${start.y} C${cx1},${cy1} ${cx2},${cy2} ${end.x},${end.y}`;
+      p.setAttribute('d', newD);
+      p.setAttribute('stroke', fill);
+      p.setAttribute('stroke-width', '2.5');
+      p.setAttribute('stroke-linecap', 'round');
+      p.setAttribute('fill', 'none');
+      p.dataset.thinned = '1';
+    } catch(err){ /* path isn't a branch; skip */ }
+  });
+}
+
+// Slider reflects the selected node's font size (8..28)
+function syncSliderToSelection(wrap, api){
+  if(!wrap) return;
+  const thumb = wrap.querySelector('[data-mmp-thumb]');
+  if(!thumb) return;
+  try {
+    const n = api.getSelected();
+    const size = (n && n.font && n.font.size) || 14;
+    const pct = Math.max(0, Math.min(100, ((size - 8) / 20) * 100));
+    thumb.style.top = (100 - pct) + '%';
+  } catch(e){}
+}
+
+function flashSaved(wrap){
+  if(!wrap) return;
+  const el = wrap.querySelector('[data-mmp-saved]');
+  if(!el) return;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity = '.35'; }, 1200);
+}
+
+function wireMmpControls(wrap, api){
+  if(!wrap || wrap._wired) return;
+  wrap._wired = true;
+
+  const thumb = wrap.querySelector('[data-mmp-thumb]');
+  const track = wrap.querySelector('.mmp-slider');
+  const safe = fn => { try { fn(); } catch(e){ console.warn('[mmp] action failed:', e); } };
+  const readFont = (key) => {
+    try { const n = api.getSelected(); return (n && n.font && n.font[key]) || 'normal'; } catch(e){ return 'normal'; }
+  };
+
+  // --- Button clicks (add/remove/zoom/center/format) ---
+  wrap.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-mmp-act]');
+    if(!btn) return;
+    const act = btn.getAttribute('data-mmp-act');
+
+    switch(act){
+      case 'add':
+        safe(()=> api.addNode());
+        break;
+      case 'remove': {
+        // Protect the root node from deletion
+        let sel;
+        try { sel = api.getSelected(); } catch(e){}
+        if(sel && (sel.isRoot || sel.locked)) return;
+        safe(()=> api.removeNode());
+        break;
+      }
+      case 'zoom-in':   safe(()=> api.zoomIn());  break;
+      case 'zoom-out':  safe(()=> api.zoomOut()); break;
+      case 'center':    safe(()=> api.center());  break;
+      case 'bold':
+        safe(()=> api.updateNode('fontWeight', readFont('weight') === 'bold' ? 'normal' : 'bold'));
+        break;
+      case 'italic':
+        safe(()=> api.updateNode('fontStyle', readFont('style') === 'italic' ? 'normal' : 'italic'));
+        break;
+      case 'copy':  safe(api.copy);  break;
+      case 'cut':   safe(api.cut);   break;
+      case 'paste': safe(api.paste); break;
+    }
+    flashSaved(wrap);
+  });
+
+  // --- Color pickers ---
+  wrap.addEventListener('input', (e)=>{
+    const input = e.target.closest('[data-mmp-color]');
+    if(!input) return;
+    const type = input.getAttribute('data-mmp-color');
+    const val  = input.value;
+    // Reflect chosen color back into the visible dot
+    const dot = input.parentElement.querySelector('.mmp-swatch-dot');
+    if(dot){
+      dot.style.background = val;
+      if(val.toLowerCase() === '#ffffff') dot.style.border = '1.5px solid #E5ECF2';
+      else dot.style.border = 'none';
+    }
+    if(type === 'node')   safe(()=> api.updateNode('backgroundColor', val));
+    if(type === 'text')   safe(()=> api.updateNode('nameColor',       val));
+    if(type === 'branch') safe(()=> api.updateNode('branchColor',     val));
+    flashSaved(wrap);
+  });
+
+  // --- Slider: resize the selected node (font size 8–28) ---
+  if(track && thumb){
+    const applyFromClientY = (clientY) => {
+      const rect = track.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(100, 100 - ((clientY - rect.top) / rect.height) * 100));
+      thumb.style.top = (100 - pct) + '%';
+      const size = Math.round(8 + (pct / 100) * 20);
+      safe(()=> api.updateNode('fontSize', size));
+    };
+    const onDown = (e) => {
+      e.preventDefault();
+      applyFromClientY(e.clientY);
+      const onMove = (ev) => applyFromClientY(ev.clientY);
+      const onUp   = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup',   onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup',   onUp);
+    };
+    track.addEventListener('mousedown', onDown);
+  }
+
+  // Initial slider position = root's size
+  syncSliderToSelection(wrap, api);
+}
+
+render();
+</script>
+</body>
+</html>
