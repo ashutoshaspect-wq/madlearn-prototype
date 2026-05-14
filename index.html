@@ -23,11 +23,6 @@
   .app-shell[data-step="prototype"]{ --active-color:#3B82F6; }
   .app-shell[data-step="test"]     { --active-color:#A855F7; }
   .app-shell[data-step="launch"]   { --active-color:#EC4899; }
-  .app-shell[data-step="define"]    .journey-step.active { background:#FF6B7A; border-color:#FF6B7A }
-  .app-shell[data-step="ideate"]    .journey-step.active { background:#22C55E; border-color:#22C55E }
-  .app-shell[data-step="prototype"] .journey-step.active { background:#3B82F6; border-color:#3B82F6 }
-  .app-shell[data-step="test"]      .journey-step.active { background:#A855F7; border-color:#A855F7 }
-  .app-shell[data-step="launch"]    .journey-step.active { background:#EC4899; border-color:#EC4899 }
   .app-shell[data-step="empathize"] .guide-block { background:#FEF3EE }
   .app-shell[data-step="empathize"] .guide-block h4 { color:#F57C3A }
   .app-shell[data-step="define"]    .guide-block { background:#FFEEF0 }
@@ -53,48 +48,59 @@
   .circle-btn{width:34px;height:34px;border-radius:50%;border:1.5px dashed #c9d2dd}
   .app-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;min-width:160px}
   /* Chevron journey */
-  .journey{flex:1;display:flex;justify-content:center;gap:0;padding:4px 0}
+  /* ============ NEW CHEVRON MENU — clean step indicator ============ */
+  .journey{
+    flex:1;display:flex;justify-content:center;align-items:center;gap:4px;
+    padding:6px 14px;background:#F8FAFC;border:1px solid #E5ECF2;border-radius:14px;
+    max-width:680px;margin:0 auto;position:relative
+  }
   .journey-step{
-    position:relative;padding:11px 30px 11px 36px;background:#fff;border:1px solid #DEE7F0;
-    color:var(--ink);cursor:pointer;font-size:14px;font-weight:500;letter-spacing:.1px;
-    clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%);
-    margin-left:-14px;
-    transition:background .25s cubic-bezier(.4,0,.2,1),transform .25s cubic-bezier(.4,0,.2,1),color .2s,box-shadow .25s;
-    overflow:hidden
+    position:relative;background:transparent;border:none;
+    color:#6B7A8F;cursor:pointer;font-size:13.5px;font-weight:500;letter-spacing:.1px;
+    padding:9px 18px;border-radius:10px;
+    display:inline-flex;align-items:center;gap:8px;
+    transition:color .25s cubic-bezier(.4,0,.2,1),background .25s cubic-bezier(.4,0,.2,1),transform .2s;
+    white-space:nowrap;flex:1;justify-content:center;min-width:0
   }
+  /* Stage dot (small colored dot before the label) */
   .journey-step::before{
-    content:'';position:absolute;inset:0;
-    background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.6) 50%,transparent 100%);
-    transform:translateX(-100%);transition:transform .6s cubic-bezier(.4,0,.2,1);
-    pointer-events:none;opacity:0
+    content:'';width:6px;height:6px;border-radius:50%;
+    background:#CBD5E1;flex-shrink:0;
+    transition:background .25s,transform .25s,box-shadow .25s
   }
-  .journey-step:first-child{margin-left:0;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%)}
+  /* Subtle hover for inactive */
+  .journey-step:hover:not(.active){color:#1E2A3B;background:rgba(255,255,255,.7)}
+  .journey-step:hover:not(.active)::before{transform:scale(1.4)}
+  /* Per-stage dot tints (always visible — represents stage identity) */
+  .journey-step[data-step="empathize"]::before{background:#F57C3A}
+  .journey-step[data-step="define"]::before{background:#FF6B7A}
+  .journey-step[data-step="ideate"]::before{background:#22C55E}
+  .journey-step[data-step="prototype"]::before{background:#3B82F6}
+  .journey-step[data-step="test"]::before{background:#A855F7}
+  .journey-step[data-step="launch"]::before{background:#EC4899}
+  /* Active state — solid white background, bolder text, glowing dot */
   .journey-step.active{
-    background:var(--orange);color:#fff;border-color:var(--orange);font-weight:600;
-    box-shadow:0 4px 14px rgba(245,124,58,.35);
-    transform:translateY(-1px) scale(1.04);
-    animation:chevronPulse .5s cubic-bezier(.34,1.56,.64,1)
+    background:#fff;color:#1E2A3B;font-weight:600;
+    box-shadow:0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(15,23,42,.05);
+    animation:journeyPop .35s cubic-bezier(.34,1.56,.64,1)
   }
-  .journey-step.active::before{opacity:1;transform:translateX(100%)}
-  .journey-step:hover:not(.active){
-    background:#F0F7FF;color:#1E2A3B;
-    transform:translateY(-1px);
-    box-shadow:0 2px 10px rgba(99,153,219,.18);
-    border-color:#C5DCF0
+  .journey-step.active::before{
+    transform:scale(1.35);
+    box-shadow:0 0 0 3px rgba(0,0,0,.04)
   }
-  .journey-step:hover:not(.active)::before{opacity:.5;transform:translateX(100%)}
-  @keyframes chevronPulse{
-    0%{transform:translateY(-1px) scale(.98)}
-    50%{transform:translateY(-1px) scale(1.07)}
-    100%{transform:translateY(-1px) scale(1.04)}
+  /* Glow ring on active dot per stage */
+  .journey-step.active[data-step="empathize"]::before{box-shadow:0 0 0 3px rgba(245,124,58,.18)}
+  .journey-step.active[data-step="define"]::before   {box-shadow:0 0 0 3px rgba(255,107,122,.20)}
+  .journey-step.active[data-step="ideate"]::before   {box-shadow:0 0 0 3px rgba(34,197,94,.20)}
+  .journey-step.active[data-step="prototype"]::before{box-shadow:0 0 0 3px rgba(59,130,246,.20)}
+  .journey-step.active[data-step="test"]::before     {box-shadow:0 0 0 3px rgba(168,85,247,.20)}
+  .journey-step.active[data-step="launch"]::before   {box-shadow:0 0 0 3px rgba(236,72,153,.20)}
+
+  @keyframes journeyPop{
+    0%  {transform:scale(.94)}
+    60% {transform:scale(1.03)}
+    100%{transform:scale(1)}
   }
-  /* Match active stage colors with shadow tints */
-  .app-shell[data-step="empathize"] .journey-step.active{box-shadow:0 4px 14px rgba(245,124,58,.35)}
-  .app-shell[data-step="define"]    .journey-step.active{box-shadow:0 4px 14px rgba(255,107,122,.35)}
-  .app-shell[data-step="ideate"]    .journey-step.active{box-shadow:0 4px 14px rgba(34,197,94,.35)}
-  .app-shell[data-step="prototype"] .journey-step.active{box-shadow:0 4px 14px rgba(59,130,246,.35)}
-  .app-shell[data-step="test"]    .journey-step.active{box-shadow:0 4px 14px rgba(168,85,247,.35)}
-  .app-shell[data-step="launch"]  .journey-step.active{box-shadow:0 4px 14px rgba(236,72,153,.35)}
 
   .header-actions{display:flex;align-items:center;gap:10px}
   .color-dots{display:flex}
@@ -251,20 +257,61 @@
   .plan-zoom button:hover{background:#F5F8FC}
 
   /* ============ DESIGN STAGE ============ */
-  .design-layout{flex:1;display:grid;grid-template-columns:340px 1fr 320px;height:calc(100vh - 110px);overflow:hidden}
-  .design-themes{border-right:1px solid var(--border);overflow-y:auto;background:#fff}
-  .selected-theme{display:flex;gap:18px;padding:18px;border-bottom:1px solid var(--border);align-items:center}
-  .selected-theme-thumb{width:90px;height:140px;border-radius:10px;background-size:cover;background-position:center;flex-shrink:0;border:1px solid var(--border)}
-  .selected-theme-info h4{font-size:15px;font-weight:700;margin:0 0 6px;color:#1E2A3B}
-  .selected-theme-info p{font-size:12px;color:#6B7A8F;margin:0 0 12px;line-height:1.5}
-  .edit-theme-btn{padding:8px 18px;background:#3BB8E0;color:#fff;border:none;border-radius:20px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
-  .edit-theme-btn:hover{background:#2BA0C8}
-  .themes-grid{padding:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-  .theme-tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px}
-  .theme-tile-img{width:100%;aspect-ratio:9/16;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;transition:border-color .15s,transform .15s}
-  .theme-tile:hover .theme-tile-img{border-color:#22C55E}
-  .theme-tile.selected .theme-tile-img{border-color:#22C55E;transform:scale(1.02)}
-  .theme-tile-label{font-size:11px;color:#1E2A3B;font-weight:500}
+  .design-layout{flex:1;display:grid;grid-template-columns:340px 1fr 320px;height:calc(100vh - 110px);overflow:hidden;position:relative}
+
+  /* Common left-column animations */
+  .design-left{border-right:1px solid var(--border);overflow-y:auto;background:#fff;padding:24px 22px;display:flex;flex-direction:column;gap:14px;animation:designLeftIn .35s cubic-bezier(.22,1,.36,1)}
+  .design-left.slide-out-left{animation:designLeftOut .22s ease forwards}
+  .design-left.slide-in-from-left-active{animation:designLeftIn .35s cubic-bezier(.22,1,.36,1)}
+  @keyframes designLeftIn{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+  @keyframes designLeftOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-40px);opacity:0}}
+
+  /* Uploads panel (default Design view) */
+  .design-uploads-title{font-size:16px;font-weight:700;color:#1E2A3B;margin:0 0 6px}
+  .design-upload-card{display:flex;gap:14px;align-items:center;padding:6px 0}
+  /* Larger Home/Inner Screen variant — preview on top, label/button below */
+  .design-upload-card.large{flex-direction:row;align-items:center;gap:16px;padding:8px 0}
+  .design-upload-card.large .design-upload-preview{width:140px;height:auto;aspect-ratio:9/16;margin:0;flex-shrink:0}
+  .design-upload-card.large .design-upload-info{flex:1;align-items:stretch;display:flex;flex-direction:column;gap:10px}
+  .design-upload-card.large .design-upload-btn{text-align:center}
+  .design-upload-preview{width:84px;height:120px;border-radius:10px;background:#F1F5F9;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid #E5ECF2;overflow:hidden;transition:background .25s}
+  .design-upload-preview.design-upload-square{height:84px;width:84px}
+  .design-upload-logo{font-family:'Mona Sans',cursive;font-size:22px;font-weight:700;font-style:italic;color:#1A47E0}
+  .design-upload-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+  .design-upload-label{font-size:14px;color:#1E2A3B;font-weight:600}
+  .design-upload-label-row{display:flex;align-items:center;justify-content:space-between}
+  .design-upload-btn{background:transparent;border:1.5px dashed #C5D2DE;border-radius:8px;padding:9px 12px;font:inherit;font-size:13px;color:#1E2A3B;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s;text-align:center}
+  .design-upload-btn:hover:not(:disabled){border-color:#3B82F6;background:#F0F7FF;color:#3B82F6}
+  .design-upload-btn:disabled{opacity:.5;cursor:not-allowed;border-color:#E5ECF2;color:#A8B3C2}
+  /* Toggle */
+  .design-toggle{position:relative;display:inline-block;width:36px;height:20px;cursor:pointer}
+  .design-toggle input{opacity:0;width:0;height:0}
+  .design-toggle-slider{position:absolute;inset:0;background:#CBD5E1;border-radius:10px;transition:background .2s}
+  .design-toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+  .design-toggle input:checked + .design-toggle-slider{background:#22C55E}
+  .design-toggle input:checked + .design-toggle-slider::before{transform:translateX(16px)}
+  .design-choose-templates-btn{margin-top:auto;background:#1A47E0;color:#fff;border:none;padding:14px 18px;border-radius:10px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
+  .design-choose-templates-btn:hover{background:#1638B3;transform:translateY(-1px)}
+
+  /* Templates panel (sliding in from the left, replacing the uploads panel) */
+  .design-templates-panel{padding:18px 18px}
+  .design-templates-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .design-templates-back{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;transition:background .15s}
+  .design-templates-back:hover{background:#F0F7FF}
+  .design-templates-head h3{margin:0;font-size:15px;font-weight:700;color:#1E2A3B}
+  .design-templates-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .design-template-tile{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .design-template-thumb{width:100%;aspect-ratio:9/16;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;transition:border-color .2s,transform .2s;position:relative;overflow:hidden;cursor:default}
+  .design-template-tile.selected .design-template-thumb{border-color:#22C55E}
+  .design-template-tile:hover .design-template-thumb{border-color:#3B82F6}
+  .design-template-apply{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);background:#fff;color:#1E2A3B;border:none;padding:8px 18px;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+  .design-template-tile:hover .design-template-apply{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+  .design-template-apply:hover{background:#22C55E;color:#fff}
+  .design-template-label{font-size:12px;color:#1E2A3B;font-weight:500;margin-top:4px}
+
+  /* Theme applied toast */
+  .design-applied-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(40px);background:#10B981;color:#fff;padding:12px 22px;border-radius:24px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(16,185,129,.35);z-index:60;display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.4,1.4,.5,1),opacity .25s}
+  .design-applied-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   .design-canvas{background:#EAF1FF;display:flex;align-items:center;justify-content:center;padding:30px;position:relative;overflow:auto}
   .phone-frame{width:280px;height:560px;background:#1E2A3B;border-radius:36px;padding:8px;flex-shrink:0;position:relative;box-shadow:0 12px 32px rgba(0,0,0,.18)}
@@ -272,6 +319,7 @@
   .phone-notch{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:60px;height:4px;background:#0d141f;border-radius:3px;z-index:5}
   .phone-titlebar{padding:18px 14px 12px;font-size:13px;font-weight:500}
   .phone-hero{padding:30px 14px;text-align:center;font-family:'Mona Sans',cursive;font-size:46px;font-weight:700;font-style:italic;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,.2)}
+  .phone-hero-img{padding:0;min-height:200px;background-repeat:no-repeat}
   .phone-buttons{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
   .phone-btn{padding:11px 16px;border-radius:6px;font-size:13px;font-weight:500;text-align:center}
   .ai-assist-btn{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#EC4899,#A855F7);color:#fff;border:none;padding:10px 20px;border-radius:24px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(168,85,247,.3)}
@@ -279,6 +327,12 @@
 
   .design-properties{border-left:1px solid var(--border);overflow-y:auto;background:#fff;padding:20px}
   .design-properties h3{font-size:14px;font-weight:700;margin:0 0 14px;color:#1E2A3B}
+  .design-qa-block{display:flex;flex-direction:column;gap:14px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border)}
+  .design-qa-field{display:flex;flex-direction:column;gap:6px}
+  .design-qa-field label{font-size:13px;font-weight:600;color:#1E2A3B}
+  .design-qa-field input{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;color:#1E2A3B;background:#F5F8FC;outline:none;transition:border-color .15s,background .15s}
+  .design-qa-field input:focus{border-color:#22C55E;background:#fff}
+  .design-qa-field input::placeholder{color:#A8B3C2}
   .prop-section{padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--border)}
   .prop-section:last-child{border:none;margin-bottom:0;padding-bottom:0}
   .prop-section-title{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6B7A8F;margin-bottom:14px}
@@ -389,6 +443,12 @@
   .bp-header{background:#3BB8E0;color:#fff;padding:11px 18px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;flex-shrink:0}
   .bp-header svg{flex-shrink:0}
   .bp-body{padding:20px;overflow-y:auto}
+  .bp-body h3{font-size:14px;font-weight:700;margin:0 0 14px;color:#1E2A3B}
+  /* Disabled-state for Build properties (when no active saved screen) */
+  .bp-input:disabled, .bp-select:disabled{background:#F0F2F5;color:#A8B3C2;cursor:not-allowed;border-color:#E5ECF2}
+  .bp-input:disabled::placeholder{color:#B0BAC8;font-style:italic}
+  .bp-slider.disabled{opacity:.5;pointer-events:none}
+  .bp-color.disabled{opacity:.55;pointer-events:none;filter:grayscale(.4)}
   .bp-body h3{font-size:15px;font-weight:700;margin:0 0 18px;color:#1E2A3B}
   .bp-section-title{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6B7A8F;margin-bottom:14px;display:flex;align-items:center;gap:6px;position:relative}
   .bp-info-icon{width:14px;height:14px;border-radius:50%;background:#9CA3AF;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:help;position:relative}
@@ -504,7 +564,7 @@
   .test-q-checkbox.checked{background:#A855F7;border-color:#A855F7}
   .test-q-content{flex:1;min-width:0}
   .test-q-title{font-size:14px;font-weight:700;color:#1E2A3B;margin-bottom:4px;cursor:pointer;user-select:none}
-  .test-q-title.struck{text-decoration:line-through;color:#9CA3AF}
+  .test-q-title.struck{color:#1E2A3B}
   .test-q-prompt{font-size:13px;color:#374151;margin-bottom:6px;line-height:1.55}
   .test-q-hint{font-size:12px;color:#6B7A8F;font-style:italic;margin-bottom:10px;line-height:1.5}
   .test-q-input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;color:#1E2A3B;background:#fff;outline:none;transition:border-color .15s}
@@ -596,6 +656,8 @@
   }
 
   .launch-app-info{flex:1;min-width:0;position:relative;z-index:1}
+  .launch-app-qr{flex-shrink:0;padding:5px;background:#fff;border:1px solid #FCE7F3;border-radius:8px;position:relative;z-index:1;line-height:0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .launch-app-qr svg{display:block}
   .launch-app-name{
     font-size:22px;font-weight:700;color:#1E2A3B;margin:0 0 8px;
     letter-spacing:-.3px;line-height:1.2
@@ -649,6 +711,11 @@
   .launch-pitch-card ul{padding-left:18px;margin:6px 0 0}
   .launch-pitch-card ul li{font-size:13px;line-height:1.8;color:#1E2A3B;list-style:disc;color:#374151}
   .launch-pitch-card ul li::marker{color:#EC4899}
+  .pitch-notes-textarea{width:100%;min-height:120px;padding:12px 14px;border:1px solid #FCE7F3;border-radius:8px;font:inherit;font-size:13.5px;color:#1E2A3B;background:#fff;outline:none;resize:vertical;transition:border-color .15s;margin-bottom:14px}
+  .pitch-notes-textarea:focus{border-color:#EC4899}
+  .pitch-present-btn{display:block;width:100%;background:#EC4899;color:#fff;border:none;padding:13px 18px;border-radius:24px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s,box-shadow .15s;box-shadow:0 4px 12px rgba(236,72,153,.3)}
+  .pitch-present-btn:hover{background:#DB2777;transform:translateY(-1px);box-shadow:0 6px 16px rgba(236,72,153,.4)}
+  .pitch-present-btn:active{transform:translateY(0)}
 
   .launch-preview{padding:24px 30px;display:flex;flex-direction:column;align-items:center;overflow-y:auto}
   .launch-device-toggle{display:flex;background:#fff;border-radius:24px;padding:4px;border:1px solid var(--border);margin-bottom:24px;gap:2px}
@@ -676,11 +743,12 @@
     position:fixed;top:0;left:0;bottom:0;width:280px;
     background:#005ECC;
     z-index:301;transform:translateX(-100%);
-    transition:transform .35s cubic-bezier(.4,0,.2,1);
+    transition:transform .35s cubic-bezier(.4,0,.2,1), box-shadow .25s ease;
     display:flex;flex-direction:column;
-    box-shadow:8px 0 32px rgba(0,0,0,.18);overflow:hidden
+    overflow:hidden
   }
-  .side-nav.open{transform:translateX(0)}
+  /* Only show the drop-shadow when the panel is actually open — otherwise it leaks across the screen */
+  .side-nav.open{transform:translateX(0);box-shadow:8px 0 32px rgba(0,0,0,.18)}
   .side-nav-header{
     padding:22px 24px 18px;display:flex;align-items:center;gap:14px;
     border-bottom:1px solid rgba(255,255,255,.15);flex-shrink:0
@@ -937,9 +1005,6 @@ const PLAN_GUIDE = [
 ];
 
 const DESIGN_GUIDE = [
-  { variant:'qa', heading:'My app should feel:', placeholder:'friendly, urgent, calm…', key:'feel' },
-  { variant:'qa', heading:'So my colors & style will be', placeholder:'bright, upbeat, modern…', key:'style' },
-  { variant:'qa', heading:'To match that tone, I will avoid:', placeholder:'black theme, dull colors…', key:'avoid' },
   { heading:'What is Design?',
     body:`Design is where your app starts to look and feel real. Before you build anything, you sketch how your screens will look, pick colors and fonts, and decide how users will move through your app.` },
   { heading:'How to do it well',
@@ -1042,7 +1107,13 @@ const state = {
     selectedTheme: 1,
     titleBar: { color:'#1A47E0', opacity:100, font:'Inter', bold:false, italic:false, underline:false, textColor:'#FFFFFF' },
     buttons:  { color:'#1A47E0', opacity:100, font:'Inter', bold:false, italic:false, underline:false, textColor:'#FFFFFF', layout:'Listing' },
-    qa: { feel:'', style:'', avoid:'' }
+    qa: { feel:'', style:'', avoid:'' },
+    templatesPanelOpen: false,        // toggles "Choose From Templates" view
+    logoEnabled: true,                // logo toggle
+    homeImage: null,                  // uploaded data URL for Home Screen
+    innerImage: null,                 // uploaded data URL for Inner Screen
+    logoImage: null,                  // uploaded data URL for Logo
+    appIconImage: null                // uploaded data URL for App Icon
   },
   // Build stage state
   build: {
@@ -1057,7 +1128,6 @@ const state = {
       { name: 'Home Screen', isHome: true, info: { helps:'', success:'' } }
     ],
     screensPopupOpen: false,
-    screenInfoOpen: false,
     activeScreenIdx: null,
     screensSearch: ''
   },
@@ -1074,7 +1144,8 @@ const state = {
     deviceView: 'phone',               // 'phone' or 'tablet'
     appDescription: '',
     tags: ['Education','Productivity'],
-    newTag: ''
+    newTag: '',
+    presentationNotes: ''
   }
 };
 
@@ -1149,8 +1220,8 @@ function render(){
       <div class="app-title"><span>My first app</span><button class="icon-btn">${I.pencil}</button></div>
 
       <nav class="journey">
-        ${STEPS.map((s,i)=>`
-          <button class="journey-step ${s.id===state.activeStep?'active':''}" data-step="${s.id}" style="z-index:${STEPS.length-i}">${s.label}</button>
+        ${STEPS.map(s=>`
+          <button class="journey-step ${s.id===state.activeStep?'active':''}" data-step="${s.id}">${s.label}</button>
         `).join('')}
       </nav>
 
@@ -1165,7 +1236,7 @@ function render(){
       <div class="info-left">${I.info}<p>${infoText}</p></div>
       ${state.activeStep === 'prototype' ? `
         <nav class="proto-tabs-inline">
-          <button class="proto-tab-pill ${state.prototypeTab==='planner'?'active':''}" data-proto-tab="planner">Planner</button>
+          <button class="proto-tab-pill ${state.prototypeTab==='planner'?'active':''}" data-proto-tab="planner">Plan</button>
           <button class="proto-tab-pill ${state.prototypeTab==='design'?'active':''}" data-proto-tab="design">Design</button>
           <button class="proto-tab-pill ${state.prototypeTab==='build'?'active':''}" data-proto-tab="build">Build</button>
         </nav>
@@ -1409,14 +1480,12 @@ function bindCommonEvents(){
     // Auto-open guide on every chevron click — same behavior across all stages
     state.guideOpen = true;
     state.ctaPanelOpen = false;                              // mutual exclusion
-    if(state.build) state.build.screenInfoOpen = false;      // mutual exclusion
     render();
   }));
   const openG = document.getElementById('openGuide');
   if(openG) openG.addEventListener('click',()=>{
     state.guideOpen=true;
     state.ctaPanelOpen = false;                              // mutual exclusion
-    if(state.build) state.build.screenInfoOpen = false;      // mutual exclusion
     render();
   });
   const closeG = document.getElementById('closeGuide');
@@ -1721,33 +1790,103 @@ function renderDesignStage(){
   const d = state.design;
   const theme = THEMES.find(t=>t.id===d.selectedTheme) || THEMES[1];
 
-  return `<div class="design-layout">
-
-    <aside class="design-themes">
-      <div class="selected-theme">
-        <div class="selected-theme-thumb" style="background:${theme.bg}"></div>
-        <div class="selected-theme-info">
-          <h4>Selected Theme</h4>
-          <p>Click on the below button to upload new theme images.</p>
-          <button class="edit-theme-btn">Edit this theme</button>
-        </div>
+  // Left column content depends on whether templates panel is open
+  const leftContent = d.templatesPanelOpen ? `
+    <aside class="design-left design-templates-panel" data-design-left>
+      <div class="design-templates-head">
+        <button class="design-templates-back" id="designTemplatesBack" title="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h3>Choose from themes</h3>
       </div>
-      <div class="themes-grid">
+      <div class="design-templates-grid">
         ${THEMES.map(t=>`
-          <div class="theme-tile ${t.id===d.selectedTheme?'selected':''}" data-theme="${t.id}">
-            <div class="theme-tile-img" style="background:${t.bg}"></div>
-            <div class="theme-tile-label">${t.label}</div>
+          <div class="design-template-tile ${t.id===d.selectedTheme?'selected':''}" data-design-theme="${t.id}">
+            <div class="design-template-thumb" style="background:${t.bg}">
+              <button class="design-template-apply" data-apply-theme="${t.id}">Apply</button>
+            </div>
+            <div class="design-template-label">${t.label}</div>
           </div>
         `).join('')}
       </div>
     </aside>
+  ` : `
+    <aside class="design-left design-uploads-panel" data-design-left>
+      <h3 class="design-uploads-title">Design Your App</h3>
+      <div class="design-upload-card large">
+        <div class="design-upload-preview" style="${d.homeImage
+          ? `background-image:url('${d.homeImage}');background-size:cover;background-position:center;`
+          : `background:${theme.bg};`}">
+          ${!d.homeImage?`<svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+            <path d="M14 38 L26 26 L36 36 L44 28 L54 38 L54 50 L14 50 Z" fill="rgba(255,255,255,.55)"/>
+            <circle cx="22" cy="22" r="4" fill="rgba(255,255,255,.85)"/>
+            <path d="M30 10 L34 14 L30 18 M22 14 H34" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
+          </svg>`:''}
+        </div>
+        <div class="design-upload-info">
+          <div class="design-upload-label">Home Screen</div>
+          <button class="design-upload-btn" data-design-upload="homeImage">+ Upload Your Image</button>
+        </div>
+      </div>
+      <div class="design-upload-card large">
+        <div class="design-upload-preview" style="${d.innerImage
+          ? `background-image:url('${d.innerImage}');background-size:cover;background-position:center;`
+          : `background:${theme.bg};`}">
+          ${!d.innerImage?`<svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+            <path d="M14 38 L26 26 L36 36 L44 28 L54 38 L54 50 L14 50 Z" fill="rgba(255,255,255,.55)"/>
+            <circle cx="22" cy="22" r="4" fill="rgba(255,255,255,.85)"/>
+            <path d="M30 10 L34 14 L30 18 M22 14 H34" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
+          </svg>`:''}
+        </div>
+        <div class="design-upload-info">
+          <div class="design-upload-label">Inner Screen</div>
+          <button class="design-upload-btn" data-design-upload="innerImage">+ Upload Your Image</button>
+        </div>
+      </div>
+      <div class="design-upload-card">
+        <div class="design-upload-preview design-upload-square" style="${d.logoImage?`background-image:url('${d.logoImage}');background-size:cover;background-position:center;`:''}">
+          ${!d.logoImage?`<div class="design-upload-logo">Logo</div>`:''}
+        </div>
+        <div class="design-upload-info">
+          <div class="design-upload-label-row">
+            <span class="design-upload-label">Logo</span>
+            <label class="design-toggle">
+              <input type="checkbox" ${d.logoEnabled?'checked':''} data-design-toggle="logoEnabled">
+              <span class="design-toggle-slider"></span>
+            </label>
+          </div>
+          <button class="design-upload-btn" data-design-upload="logoImage" ${d.logoEnabled?'':'disabled'}>+ Upload Your Logo</button>
+        </div>
+      </div>
+      <div class="design-upload-card">
+        <div class="design-upload-preview design-upload-square" style="${d.appIconImage?`background-image:url('${d.appIconImage}');background-size:cover;background-position:center;`:''}">
+          ${!d.appIconImage?`<svg width="44" height="44" viewBox="0 0 64 64" fill="none">
+            <rect x="6" y="6" width="52" height="52" rx="10" fill="#93C5FD"/>
+            <circle cx="22" cy="22" r="5" fill="#FCD34D"/>
+            <path d="M14 50 L26 36 L36 46 L48 32 L54 38 L54 50 Z" fill="#3B82F6"/>
+          </svg>`:''}
+        </div>
+        <div class="design-upload-info">
+          <div class="design-upload-label">App Icon</div>
+          <button class="design-upload-btn" data-design-upload="appIconImage">+ Upload Your App Icon</button>
+        </div>
+      </div>
+      <button class="design-choose-templates-btn" id="designChooseTemplatesBtn">Choose From Themes</button>
+    </aside>
+  `;
+
+  return `<div class="design-layout">
+
+    ${leftContent}
 
     <div class="design-canvas">
       <div class="phone-frame">
         <div class="phone-notch"></div>
         <div class="phone-screen">
           <div class="phone-titlebar" style="background:${hexWithOpacity(d.titleBar.color, d.titleBar.opacity)};color:${d.titleBar.textColor};font-family:${d.titleBar.font};${d.titleBar.bold?'font-weight:700;':''}${d.titleBar.italic?'font-style:italic;':''}${d.titleBar.underline?'text-decoration:underline;':''}">Title bar</div>
-          <div class="phone-hero" style="background:${theme.heroBg};color:#fff">SPACE!</div>
+          ${d.homeImage
+            ? `<div class="phone-hero phone-hero-img" style="background-image:url('${d.homeImage}');background-size:cover;background-position:center;"></div>`
+            : `<div class="phone-hero" style="background:${theme.heroBg};color:#fff">SPACE!</div>`}
           <div class="phone-buttons">
             ${[1,2,3,4].map(n=>`
               <div class="phone-btn" style="background:${hexWithOpacity(d.buttons.color, d.buttons.opacity)};color:${d.buttons.textColor};font-family:${d.buttons.font};${d.buttons.bold?'font-weight:700;':''}${d.buttons.italic?'font-style:italic;':''}${d.buttons.underline?'text-decoration:underline;':''}">Item ${n}</div>
@@ -1763,9 +1902,27 @@ function renderDesignStage(){
 
     <aside class="design-properties">
       <h3>Properties</h3>
+      <div class="design-qa-block">
+        <div class="design-qa-field">
+          <label>My app should feel:</label>
+          <input type="text" placeholder="friendly, urgent, calm…" value="${escapeHtml((state.design.qa && state.design.qa.feel) || '')}" data-qa="design:feel">
+        </div>
+        <div class="design-qa-field">
+          <label>So my colors & style will be</label>
+          <input type="text" placeholder="bright, upbeat, modern…" value="${escapeHtml((state.design.qa && state.design.qa.style) || '')}" data-qa="design:style">
+        </div>
+        <div class="design-qa-field">
+          <label>To match that tone, I will avoid:</label>
+          <input type="text" placeholder="black theme, dull colors…" value="${escapeHtml((state.design.qa && state.design.qa.avoid) || '')}" data-qa="design:avoid">
+        </div>
+      </div>
       ${propSection('TITLE BAR','titleBar', d.titleBar)}
-      ${propSection('BUTTONS','buttons', d.buttons, true)}
     </aside>
+
+    <div class="design-applied-toast" id="designAppliedToast">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Theme applied!
+    </div>
 
   </div>`;
 }
@@ -1822,12 +1979,6 @@ function hexWithOpacity(hex, opacity){
 }
 
 function bindDesignEvents(){
-  // Theme selection
-  app.querySelectorAll('[data-theme]').forEach(t=>t.addEventListener('click',e=>{
-    state.design.selectedTheme = parseInt(e.currentTarget.getAttribute('data-theme'),10);
-    render();
-  }));
-
   // Property inputs
   app.querySelectorAll('[data-prop]').forEach(el=>{
     el.addEventListener('input',e=>{
@@ -1849,6 +2000,122 @@ function bindDesignEvents(){
       render();
     });
   });
+
+  // Logo toggle
+  app.querySelectorAll('[data-design-toggle]').forEach(el=>{
+    el.addEventListener('change',e=>{
+      const field = e.target.getAttribute('data-design-toggle');
+      state.design[field] = e.target.checked;
+      render();   // re-render so the Upload button disables/enables
+    });
+  });
+
+  // Upload image buttons — open native file picker
+  app.querySelectorAll('[data-design-upload]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const field = e.currentTarget.getAttribute('data-design-upload');
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = 'image/*';
+      inp.style.display = 'none';
+      inp.addEventListener('change', evt=>{
+        const file = evt.target.files && evt.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = ev=>{
+          state.design[field] = ev.target.result;
+          render();
+        };
+        reader.readAsDataURL(file);
+      });
+      document.body.appendChild(inp);
+      inp.click();
+      // cleanup after a tick
+      setTimeout(()=>inp.remove(), 1000);
+    });
+  });
+
+  // "Choose From Templates" → open templates panel (with slide animation)
+  const chooseBtn = document.getElementById('designChooseTemplatesBtn');
+  if(chooseBtn) chooseBtn.addEventListener('click', ()=>{
+    const left = app.querySelector('[data-design-left]');
+    if(left){
+      left.classList.add('slide-out-left');
+      setTimeout(()=>{
+        state.design.templatesPanelOpen = true;
+        render();
+        // animate new panel in
+        requestAnimationFrame(()=>{
+          const newLeft = app.querySelector('[data-design-left]');
+          if(newLeft) newLeft.classList.add('slide-in-from-left-active');
+        });
+      }, 220);
+    } else {
+      state.design.templatesPanelOpen = true;
+      render();
+    }
+  });
+
+  // Back button in templates panel → back to uploads
+  const backBtn = document.getElementById('designTemplatesBack');
+  if(backBtn) backBtn.addEventListener('click', ()=>{
+    const left = app.querySelector('[data-design-left]');
+    if(left){
+      left.classList.add('slide-out-left');
+      setTimeout(()=>{
+        state.design.templatesPanelOpen = false;
+        render();
+        requestAnimationFrame(()=>{
+          const newLeft = app.querySelector('[data-design-left]');
+          if(newLeft) newLeft.classList.add('slide-in-from-left-active');
+        });
+      }, 220);
+    } else {
+      state.design.templatesPanelOpen = false;
+      render();
+    }
+  });
+
+  // Apply theme buttons in templates panel
+  app.querySelectorAll('[data-apply-theme]').forEach(b=>b.addEventListener('click', e=>{
+    e.stopPropagation();
+    const themeId = parseInt(e.currentTarget.getAttribute('data-apply-theme'),10);
+    state.design.selectedTheme = themeId;
+    // Show toast, then slide panel back to uploads view
+    showDesignToast();
+    const left = app.querySelector('[data-design-left]');
+    if(left){
+      setTimeout(()=>{
+        left.classList.add('slide-out-left');
+        setTimeout(()=>{
+          state.design.templatesPanelOpen = false;
+          render();
+          requestAnimationFrame(()=>{
+            const newLeft = app.querySelector('[data-design-left]');
+            if(newLeft) newLeft.classList.add('slide-in-from-left-active');
+          });
+        }, 220);
+      }, 600);
+    } else {
+      state.design.templatesPanelOpen = false;
+      render();
+    }
+  }));
+
+  // Initial slide-in animation when re-entering the left panel
+  requestAnimationFrame(()=>{
+    const left = app.querySelector('[data-design-left]');
+    if(left && !left.classList.contains('slide-in-from-left-active')){
+      // No-op on first mount; the slide is triggered only on view transitions
+    }
+  });
+}
+
+function showDesignToast(){
+  const t = document.getElementById('designAppliedToast');
+  if(!t) return;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1500);
 }
 
 /* ---------------- BUILD STAGE ---------------- */
@@ -1945,8 +2212,15 @@ function renderBuildStage(){
           <input class="bp-input" type="text" placeholder="Enter Screen Name" value="${escapeHtml(b.screenName)}" data-build-input="screenName">
         </div>
         <div class="bp-row">
+          <label class="bp-label">This screen helps the user:</label>
+          ${b.activeScreenIdx !== null && b.screens[b.activeScreenIdx]
+            ? `<input class="bp-input" type="text" placeholder="e.g. Navigates the buttons…" value="${escapeHtml(b.screens[b.activeScreenIdx].info.helps || '')}" data-screen-info="helps">`
+            : `<input class="bp-input" type="text" placeholder="Save a screen name first to enable this field" data-screen-info="helps" disabled title="Save a screen name first to enable this field">`
+          }
+        </div>
+        <div class="bp-row">
           <label class="bp-label">Link screen</label>
-          <select class="bp-select" data-build-input="linkScreen">
+          <select class="bp-select" data-build-input="linkScreen" ${b.activeScreenIdx === null ? 'disabled' : ''}>
             <option value="">Select screen</option>
             <option value="home">Home Screen</option>
             <option value="about">About</option>
@@ -1955,25 +2229,25 @@ function renderBuildStage(){
         </div>
         <div class="bp-row">
           <label class="bp-label">Background Opacity</label>
-          <div class="bp-slider">
-            <input type="range" min="0" max="100" value="${b.backgroundOpacity}" data-build-input="backgroundOpacity">
+          <div class="bp-slider ${b.activeScreenIdx === null ? 'disabled' : ''}">
+            <input type="range" min="0" max="100" value="${b.backgroundOpacity}" data-build-input="backgroundOpacity" ${b.activeScreenIdx === null ? 'disabled' : ''}>
             <span class="bp-slider-value">${b.backgroundOpacity}%</span>
           </div>
         </div>
         <div class="bp-row">
           <label class="bp-label">Button Color</label>
-          <span class="bp-color" style="background:${b.buttonColor}">
-            <input type="color" value="${b.buttonColor}" data-build-input="buttonColor">
+          <span class="bp-color ${b.activeScreenIdx === null ? 'disabled' : ''}" style="background:${b.buttonColor}">
+            <input type="color" value="${b.buttonColor}" data-build-input="buttonColor" ${b.activeScreenIdx === null ? 'disabled' : ''}>
           </span>
         </div>
         <div class="bp-row">
           <label class="bp-label">Button Text</label>
-          <input class="bp-input" type="text" placeholder="Enter Button Text" value="${escapeHtml(b.buttonText)}" data-build-input="buttonText">
+          <input class="bp-input" type="text" placeholder="Enter Button Text" value="${escapeHtml(b.buttonText)}" data-build-input="buttonText" ${b.activeScreenIdx === null ? 'disabled' : ''}>
         </div>
         <div class="bp-row">
           <label class="bp-label">Button Text Color</label>
-          <span class="bp-color" style="background:${b.buttonTextColor}">
-            <input type="color" value="${b.buttonTextColor}" data-build-input="buttonTextColor">
+          <span class="bp-color ${b.activeScreenIdx === null ? 'disabled' : ''}" style="background:${b.buttonTextColor}">
+            <input type="color" value="${b.buttonTextColor}" data-build-input="buttonTextColor" ${b.activeScreenIdx === null ? 'disabled' : ''}>
           </span>
         </div>
       </div>
@@ -2018,41 +2292,17 @@ function renderBuildStage(){
       </div>
     </div>
 
-    <!-- Screen Info side panel -->
-    <div class="screen-info-panel" id="screenInfoPanel" data-panel-open="${b.screenInfoOpen?'1':'0'}">
-      <div class="screen-info-head">
-        <div class="screen-info-title">
-          <h2>Screen Info</h2>
-          <span class="screen-info-name" id="screenInfoName" title="Click to rename">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2.2"/><line x1="9" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-            <span>${escapeHtml(b.activeScreenIdx !== null && b.screens[b.activeScreenIdx] ? b.screens[b.activeScreenIdx].name : '')}</span>
-            <svg class="edit-pencil" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-        </div>
-        <button class="icon-btn" id="closeScreenInfoBtn">${I.close}</button>
-      </div>
-      <div class="screen-info-body">
-        <div class="screen-info-field">
-          <h4>This screen helps the user:</h4>
-          <input type="text" placeholder="e.g. Navigates the buttons…" value="${escapeHtml(b.activeScreenIdx !== null && b.screens[b.activeScreenIdx] ? b.screens[b.activeScreenIdx].info.helps : '')}" data-screen-info="helps">
-        </div>
-        <div class="screen-info-field">
-          <h4>Success looks like: (Ex: In a Choose Your Own Adventure-style app, the user finds a shelter in two clicks)</h4>
-          <input type="text" placeholder="e.g. Navigate to the desired screen…" value="${escapeHtml(b.activeScreenIdx !== null && b.screens[b.activeScreenIdx] ? b.screens[b.activeScreenIdx].info.success : '')}" data-screen-info="success">
-        </div>
-      </div>
-    </div>
-
   </div>`;
 }
 
 function bindBuildEvents(){
-  // Template selection — clears screen name, closes Screen Info panel (Guide untouched)
+  // Template selection — clears screen name AND resets active screen (default state)
+  // The helps input becomes disabled until a new screen name is saved.
   app.querySelectorAll('[data-build-template]').forEach(t=>{
     t.addEventListener('click',e=>{
       state.build.selectedTemplate = e.currentTarget.getAttribute('data-build-template');
       state.build.screenName = '';
-      state.build.screenInfoOpen = false;
+      state.build.activeScreenIdx = null;
       render();
     });
   });
@@ -2080,30 +2330,22 @@ function bindBuildEvents(){
       }
     });
 
-    // On blur or Enter for screenName → "save" → add to screens list + open Screen Info panel
+    // On blur or Enter for screenName → "save" → always create a new screen entry.
+    // Existing screens are only accessible via My Screens — typing the same name again
+    // does NOT load the previous answer; it creates a new entry.
     if(field === 'screenName'){
       const trySave = ()=>{
         const name = state.build.screenName.trim();
         if(!name) return;
-        // Check if this name already exists
-        const existingIdx = state.build.screens.findIndex(s=>s.name.toLowerCase() === name.toLowerCase());
-        if(existingIdx === -1){
-          // New screen — add to list
-          state.build.screens.push({ name, isHome:false, info:{ helps:'', success:'' } });
-          state.build.activeScreenIdx = state.build.screens.length - 1;
-          showSavedToast();
-          setTimeout(()=>{
-            state.build.screenInfoOpen = true;
-            state.guideOpen = false;          // mutual exclusion
-            render();
-          }, 700);
-        } else {
-          // Existing screen — just open its info panel
-          state.build.activeScreenIdx = existingIdx;
-          state.build.screenInfoOpen = true;
-          state.guideOpen = false;             // mutual exclusion
-          render();
-        }
+        // Don't re-save if this is the active screen being re-blurred (avoid double creation)
+        if(state.build.activeScreenIdx !== null && state.build.screens[state.build.activeScreenIdx] && state.build.screens[state.build.activeScreenIdx].name === name) return;
+        // Always create a new screen entry on save
+        state.build.screens.push({ name, isHome:false, info:{ helps:'', success:'' } });
+        state.build.activeScreenIdx = state.build.screens.length - 1;
+        // Full re-render so the helps input becomes enabled, THEN show the toast
+        // (rendering first ensures the toast element isn't destroyed by the render)
+        render();
+        showSavedToast();
       };
       el.addEventListener('blur', trySave);
       el.addEventListener('keydown',e=>{
@@ -2115,6 +2357,17 @@ function bindBuildEvents(){
     }
   });
 
+  // "This screen helps the user:" input (per-active-screen)
+  app.querySelectorAll('[data-screen-info]').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      const key = e.target.getAttribute('data-screen-info');
+      const idx = state.build.activeScreenIdx;
+      if(idx !== null && state.build.screens[idx]){
+        state.build.screens[idx].info[key] = e.target.value;
+      }
+    });
+  });
+
   // My Screens button → open popup
   const openScreensBtn = document.getElementById('openScreensPopupBtn');
   if(openScreensBtn) openScreensBtn.addEventListener('click',()=>{
@@ -2122,7 +2375,7 @@ function bindBuildEvents(){
     render();
   });
 
-  // Close popup — ONLY via × button (no backdrop close)
+  // Close popup — ONLY via × button
   const closeScreensBtn = document.getElementById('closeScreensPopupBtn');
   if(closeScreensBtn) closeScreensBtn.addEventListener('click',()=>{
     state.build.screensPopupOpen = false;
@@ -2133,7 +2386,6 @@ function bindBuildEvents(){
   const searchInput = app.querySelector('[data-screens-search]');
   if(searchInput) searchInput.addEventListener('input',e=>{
     state.build.screensSearch = e.target.value;
-    // Re-render only the screens list
     const list = app.querySelector('.screens-list');
     if(!list) return;
     const b = state.build;
@@ -2154,109 +2406,24 @@ function bindBuildEvents(){
           <div class="screen-tile-label">${escapeHtml(s.name)}</div>
         </div>
       `).join('');
-    // Rewire screen tile clicks (popup stays open; only Guide closes)
     list.querySelectorAll('[data-screen-idx]').forEach(t=>t.addEventListener('click',ev=>{
       const idx = parseInt(ev.currentTarget.getAttribute('data-screen-idx'),10);
       switchActiveScreen(idx);
     }));
   });
 
-  // Screen tile click → switches active screen + opens Screen Info panel
-  // Popup STAYS OPEN and DOES NOT re-animate. Guide closes (mutual exclusion).
+  // Screen tile click → switches active screen (popup stays open)
   app.querySelectorAll('[data-screen-idx]').forEach(t=>t.addEventListener('click',e=>{
     const idx = parseInt(e.currentTarget.getAttribute('data-screen-idx'),10);
     switchActiveScreen(idx);
   }));
 
-  // Close Screen Info panel
-  const closeInfoBtn = document.getElementById('closeScreenInfoBtn');
-  if(closeInfoBtn) closeInfoBtn.addEventListener('click',()=>{
-    state.build.screenInfoOpen = false;
-    render();
-  });
-
-  // Screen Info inputs — save without re-render
-  app.querySelectorAll('[data-screen-info]').forEach(inp=>{
-    inp.addEventListener('input',e=>{
-      const key = e.target.getAttribute('data-screen-info');
-      const idx = state.build.activeScreenIdx;
-      if(idx !== null && state.build.screens[idx]){
-        state.build.screens[idx].info[key] = e.target.value;
-      }
-    });
-  });
-
-  // Click screen name pill → inline rename
-  const namePill = document.getElementById('screenInfoName');
-  if(namePill) namePill.addEventListener('click', e=>{
-    if(namePill.classList.contains('editing')) return;   // already editing
-    const idx = state.build.activeScreenIdx;
-    if(idx === null || !state.build.screens[idx]) return;
-    const screen = state.build.screens[idx];
-    if(screen.isHome) return;                             // Home Screen is not renameable
-
-    const labelSpan = namePill.querySelector('span');
-    const oldName = screen.name;
-
-    // Replace label with input
-    namePill.classList.add('editing');
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = oldName;
-    input.maxLength = 40;
-    labelSpan.replaceWith(input);
-    input.focus();
-    input.select();
-
-    const finish = (commit)=>{
-      const newName = input.value.trim();
-      const finalName = (commit && newName) ? newName : oldName;
-
-      // Update state
-      screen.name = finalName;
-      // Also sync the Properties screenName field if THIS is the displayed screen
-      if(state.build.screenName === oldName) state.build.screenName = finalName;
-
-      // Restore label
-      const newSpan = document.createElement('span');
-      newSpan.textContent = finalName;
-      input.replaceWith(newSpan);
-      namePill.classList.remove('editing');
-
-      // Update tile labels in popup (in-place)
-      document.querySelectorAll('[data-screen-idx]').forEach(t=>{
-        const i = parseInt(t.getAttribute('data-screen-idx'),10);
-        if(i === idx){
-          const lbl = t.querySelector('.screen-tile-label');
-          if(lbl) lbl.textContent = finalName;
-        }
-      });
-      // Update phone titlebar + Properties input
-      const tb = document.querySelector('.build-phone-titlebar');
-      if(tb && state.build.screenName === finalName) tb.textContent = finalName.trim() ? finalName : 'Screen Title';
-      const propInput = document.querySelector('[data-build-input="screenName"]');
-      if(propInput && propInput.value === oldName) propInput.value = finalName;
-      // Update My Screens button count text (count unchanged, but to keep label fresh)
-      const myBtn = document.getElementById('openScreensPopupBtn');
-      if(myBtn) myBtn.textContent = `My Screens (${state.build.screens.length})`;
-    };
-
-    input.addEventListener('blur', ()=>finish(true));
-    input.addEventListener('keydown', e=>{
-      if(e.key === 'Enter'){ e.preventDefault(); input.blur(); }
-      else if(e.key === 'Escape'){ input.value = oldName; input.blur(); }
-    });
-  });
-
-  // Trigger slide-in animations on next frame so transitions actually fire
-  // (elements render with data-popup-open attribute, .open class is added a frame later)
+  // Trigger slide-in animation for popup on next frame
   requestAnimationFrame(()=>{
     const popup    = document.getElementById('screensPopup');
     const backdrop = document.getElementById('screensPopupBackdrop');
-    const panel    = document.getElementById('screenInfoPanel');
     if(popup    && popup.dataset.popupOpen === '1')    popup.classList.add('open');
     if(backdrop && backdrop.dataset.popupOpen === '1') backdrop.classList.add('open');
-    if(panel    && panel.dataset.panelOpen === '1')    panel.classList.add('open');
   });
 }
 
@@ -2267,12 +2434,12 @@ function showSavedToast(){
   setTimeout(()=>t.classList.remove('show'), 1800);
 }
 
-// Switch active screen WITHOUT re-rendering the whole stage (so the popup
-// doesn't slide-up animate every time). Updates state, tile highlight, and
-// Screen Info panel inputs in-place. Mutual-exclusion: closes Guide.
+// Switch active screen. If we're transitioning from "no active screen" (null),
+// the properties panel needs a full re-render to swap disabled → enabled states.
+// Otherwise update in-place to avoid re-animating the popup.
 function switchActiveScreen(idx){
+  const wasNull = state.build.activeScreenIdx === null;
   state.build.activeScreenIdx = idx;
-  state.build.screenInfoOpen = true;
 
   // Update active tile highlight in the popup
   document.querySelectorAll('[data-screen-idx]').forEach(t=>{
@@ -2280,29 +2447,25 @@ function switchActiveScreen(idx){
     t.classList.toggle('active', i === idx);
   });
 
-  // Close Guide if open (mutual exclusion) — re-render stage (popup will
-  // re-animate, but Guide-close transition is what's wanted here).
-  if(state.guideOpen){
-    state.guideOpen = false;
+  const screen = state.build.screens[idx];
+  if(!screen) return;
+
+  // Sync state
+  state.build.screenName = screen.name;
+
+  if(wasNull){
+    // Full render so all the disabled inputs swap to enabled
     render();
     return;
   }
 
-  // Update Screen Info panel inputs with this screen's saved data
-  const screen = state.build.screens[idx];
-  if(screen){
-    const helps   = document.querySelector('[data-screen-info="helps"]');
-    const success = document.querySelector('[data-screen-info="success"]');
-    if(helps)   helps.value   = screen.info.helps   || '';
-    if(success) success.value = screen.info.success || '';
-    // Update screen name label in the head
-    const nameLbl = document.querySelector('#screenInfoName span');
-    if(nameLbl) nameLbl.textContent = screen.name;
-  }
-
-  // Make sure Screen Info panel is open (slide it in if it wasn't)
-  const panel = document.getElementById('screenInfoPanel');
-  if(panel) panel.classList.add('open');
+  // In-place update (no full render, popup stays put)
+  const tb = document.querySelector('.build-phone-titlebar');
+  if(tb) tb.textContent = screen.name.trim() ? screen.name : 'Screen Title';
+  const propInput = document.querySelector('[data-build-input="screenName"]');
+  if(propInput) propInput.value = screen.name;
+  const helps = document.querySelector('[data-screen-info="helps"]');
+  if(helps) helps.value = screen.info.helps || '';
 }
 
 /* ---------------- TEST STAGE ---------------- */
@@ -2328,6 +2491,58 @@ const TEST_QUESTIONS = [
     hint:'This is the whole point of testing — describe what you changed and why.',
     placeholder:'Who tested it? What specific feedback did they give?' }
 ];
+
+// Reusable decorative QR code (used in Test Share App + Launch App Description)
+function renderQRCode(size){
+  const s = size || 240;
+  // Same 33x33 pattern as below but referenced via <use> would require defs setup;
+  // simpler to just inline as a fresh compact SVG with the same look.
+  return `<svg width="${s}" height="${s}" viewBox="0 0 33 33" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+    <rect width="33" height="33" fill="#fff"/>
+    <g fill="#000">
+      <rect x="0"  y="0" width="7" height="7"/><rect x="1"  y="1" width="5" height="5" fill="#fff"/><rect x="2"  y="2" width="3" height="3"/>
+      <rect x="26" y="0" width="7" height="7"/><rect x="27" y="1" width="5" height="5" fill="#fff"/><rect x="28" y="2" width="3" height="3"/>
+      <rect x="0"  y="26" width="7" height="7"/><rect x="1"  y="27" width="5" height="5" fill="#fff"/><rect x="2"  y="28" width="3" height="3"/>
+      <rect x="8" y="6" width="1" height="1"/><rect x="10" y="6" width="1" height="1"/><rect x="12" y="6" width="1" height="1"/><rect x="14" y="6" width="1" height="1"/><rect x="16" y="6" width="1" height="1"/><rect x="18" y="6" width="1" height="1"/><rect x="20" y="6" width="1" height="1"/><rect x="22" y="6" width="1" height="1"/><rect x="24" y="6" width="1" height="1"/>
+      <rect x="6" y="8" width="1" height="1"/><rect x="6" y="10" width="1" height="1"/><rect x="6" y="12" width="1" height="1"/><rect x="6" y="14" width="1" height="1"/><rect x="6" y="16" width="1" height="1"/><rect x="6" y="18" width="1" height="1"/><rect x="6" y="20" width="1" height="1"/><rect x="6" y="22" width="1" height="1"/><rect x="6" y="24" width="1" height="1"/>
+      <rect x="8" y="0" width="1" height="1"/><rect x="10" y="0" width="2" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="2" height="1"/><rect x="19" y="0" width="1" height="1"/><rect x="22" y="0" width="2" height="1"/>
+      <rect x="9" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="14" y="1" width="2" height="1"/><rect x="18" y="1" width="1" height="1"/><rect x="21" y="1" width="2" height="1"/><rect x="24" y="1" width="1" height="1"/>
+      <rect x="8" y="2" width="2" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="15" y="2" width="1" height="1"/><rect x="17" y="2" width="1" height="1"/><rect x="20" y="2" width="1" height="1"/><rect x="23" y="2" width="2" height="1"/>
+      <rect x="10" y="3" width="1" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="15" y="3" width="2" height="1"/><rect x="19" y="3" width="2" height="1"/><rect x="22" y="3" width="1" height="1"/>
+      <rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="2" height="1"/><rect x="14" y="4" width="1" height="1"/><rect x="17" y="4" width="2" height="1"/><rect x="21" y="4" width="1" height="1"/><rect x="24" y="4" width="1" height="1"/>
+      <rect x="9" y="5" width="2" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="15" y="5" width="1" height="1"/><rect x="18" y="5" width="2" height="1"/><rect x="22" y="5" width="2" height="1"/>
+      <rect x="8" y="8" width="2" height="1"/><rect x="11" y="8" width="1" height="1"/><rect x="14" y="8" width="2" height="1"/><rect x="17" y="8" width="1" height="1"/><rect x="20" y="8" width="2" height="1"/><rect x="24" y="8" width="1" height="1"/>
+      <rect x="10" y="9" width="1" height="1"/><rect x="13" y="9" width="2" height="1"/><rect x="16" y="9" width="1" height="1"/><rect x="19" y="9" width="1" height="1"/><rect x="22" y="9" width="1" height="1"/><rect x="25" y="9" width="2" height="1"/>
+      <rect x="8" y="10" width="1" height="1"/><rect x="11" y="10" width="2" height="1"/><rect x="15" y="10" width="1" height="1"/><rect x="17" y="10" width="2" height="1"/><rect x="21" y="10" width="2" height="1"/><rect x="25" y="10" width="1" height="1"/>
+      <rect x="9" y="11" width="1" height="1"/><rect x="12" y="11" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/><rect x="16" y="11" width="2" height="1"/><rect x="20" y="11" width="1" height="1"/><rect x="23" y="11" width="1" height="1"/><rect x="26" y="11" width="2" height="1"/>
+      <rect x="8" y="12" width="2" height="1"/><rect x="13" y="12" width="2" height="1"/><rect x="18" y="12" width="1" height="1"/><rect x="21" y="12" width="1" height="1"/><rect x="24" y="12" width="2" height="1"/><rect x="28" y="12" width="1" height="1"/>
+      <rect x="11" y="13" width="1" height="1"/><rect x="15" y="13" width="1" height="1"/><rect x="17" y="13" width="1" height="1"/><rect x="19" y="13" width="2" height="1"/><rect x="23" y="13" width="2" height="1"/><rect x="27" y="13" width="1" height="1"/>
+      <rect x="8" y="14" width="1" height="1"/><rect x="10" y="14" width="2" height="1"/><rect x="14" y="14" width="1" height="1"/><rect x="16" y="14" width="1" height="1"/><rect x="20" y="14" width="1" height="1"/><rect x="22" y="14" width="1" height="1"/><rect x="25" y="14" width="2" height="1"/><rect x="29" y="14" width="1" height="1"/>
+      <rect x="9" y="15" width="1" height="1"/><rect x="12" y="15" width="1" height="1"/><rect x="15" y="15" width="2" height="1"/><rect x="18" y="15" width="1" height="1"/><rect x="21" y="15" width="2" height="1"/><rect x="26" y="15" width="1" height="1"/><rect x="28" y="15" width="2" height="1"/>
+      <rect x="8" y="16" width="2" height="1"/><rect x="13" y="16" width="2" height="1"/><rect x="17" y="16" width="1" height="1"/><rect x="20" y="16" width="1" height="1"/><rect x="23" y="16" width="1" height="1"/><rect x="25" y="16" width="1" height="1"/><rect x="27" y="16" width="2" height="1"/>
+      <rect x="10" y="17" width="1" height="1"/><rect x="14" y="17" width="1" height="1"/><rect x="16" y="17" width="1" height="1"/><rect x="19" y="17" width="2" height="1"/><rect x="22" y="17" width="2" height="1"/><rect x="26" y="17" width="2" height="1"/><rect x="30" y="17" width="1" height="1"/>
+      <rect x="8" y="18" width="1" height="1"/><rect x="11" y="18" width="2" height="1"/><rect x="15" y="18" width="1" height="1"/><rect x="17" y="18" width="2" height="1"/><rect x="21" y="18" width="1" height="1"/><rect x="24" y="18" width="2" height="1"/><rect x="28" y="18" width="1" height="1"/><rect x="31" y="18" width="1" height="1"/>
+      <rect x="9" y="19" width="2" height="1"/><rect x="13" y="19" width="1" height="1"/><rect x="16" y="19" width="2" height="1"/><rect x="20" y="19" width="2" height="1"/><rect x="25" y="19" width="1" height="1"/><rect x="27" y="19" width="1" height="1"/><rect x="30" y="19" width="2" height="1"/>
+      <rect x="8" y="20" width="2" height="1"/><rect x="12" y="20" width="1" height="1"/><rect x="14" y="20" width="2" height="1"/><rect x="18" y="20" width="1" height="1"/><rect x="22" y="20" width="1" height="1"/><rect x="24" y="20" width="1" height="1"/><rect x="26" y="20" width="2" height="1"/><rect x="29" y="20" width="1" height="1"/><rect x="32" y="20" width="1" height="1"/>
+      <rect x="11" y="21" width="1" height="1"/><rect x="13" y="21" width="2" height="1"/><rect x="17" y="21" width="1" height="1"/><rect x="19" y="21" width="2" height="1"/><rect x="23" y="21" width="2" height="1"/><rect x="28" y="21" width="2" height="1"/><rect x="31" y="21" width="1" height="1"/>
+      <rect x="8" y="22" width="1" height="1"/><rect x="10" y="22" width="1" height="1"/><rect x="13" y="22" width="1" height="1"/><rect x="15" y="22" width="2" height="1"/><rect x="18" y="22" width="2" height="1"/><rect x="22" y="22" width="1" height="1"/><rect x="25" y="22" width="2" height="1"/><rect x="29" y="22" width="2" height="1"/>
+      <rect x="9" y="23" width="1" height="1"/><rect x="11" y="23" width="2" height="1"/><rect x="14" y="23" width="1" height="1"/><rect x="17" y="23" width="1" height="1"/><rect x="20" y="23" width="1" height="1"/><rect x="22" y="23" width="2" height="1"/><rect x="26" y="23" width="1" height="1"/><rect x="28" y="23" width="2" height="1"/><rect x="31" y="23" width="1" height="1"/>
+      <rect x="8" y="24" width="2" height="1"/><rect x="12" y="24" width="2" height="1"/><rect x="15" y="24" width="1" height="1"/><rect x="18" y="24" width="2" height="1"/><rect x="21" y="24" width="1" height="1"/><rect x="25" y="24" width="2" height="1"/><rect x="29" y="24" width="1" height="1"/><rect x="32" y="24" width="1" height="1"/>
+      <rect x="8" y="25" width="1" height="1"/><rect x="10" y="25" width="1" height="1"/><rect x="12" y="25" width="1" height="1"/><rect x="14" y="25" width="2" height="1"/><rect x="17" y="25" width="2" height="1"/><rect x="20" y="25" width="2" height="1"/><rect x="24" y="25" width="1" height="1"/><rect x="26" y="25" width="2" height="1"/><rect x="30" y="25" width="2" height="1"/>
+      <rect x="8" y="26" width="2" height="1"/><rect x="11" y="26" width="2" height="1"/><rect x="14" y="26" width="1" height="1"/><rect x="16" y="26" width="2" height="1"/><rect x="19" y="26" width="2" height="1"/><rect x="23" y="26" width="2" height="1"/><rect x="27" y="26" width="1" height="1"/><rect x="29" y="26" width="2" height="1"/><rect x="32" y="26" width="1" height="1"/>
+      <rect x="9" y="27" width="1" height="1"/><rect x="13" y="27" width="2" height="1"/><rect x="16" y="27" width="1" height="1"/><rect x="18" y="27" width="1" height="1"/><rect x="22" y="27" width="2" height="1"/><rect x="25" y="27" width="1" height="1"/><rect x="27" y="27" width="2" height="1"/><rect x="31" y="27" width="1" height="1"/>
+      <rect x="8" y="28" width="1" height="1"/><rect x="11" y="28" width="2" height="1"/><rect x="14" y="28" width="1" height="1"/><rect x="17" y="28" width="2" height="1"/><rect x="20" y="28" width="1" height="1"/><rect x="22" y="28" width="2" height="1"/><rect x="26" y="28" width="2" height="1"/><rect x="30" y="28" width="1" height="1"/>
+      <rect x="9" y="29" width="2" height="1"/><rect x="13" y="29" width="1" height="1"/><rect x="15" y="29" width="2" height="1"/><rect x="18" y="29" width="2" height="1"/><rect x="21" y="29" width="1" height="1"/><rect x="24" y="29" width="2" height="1"/><rect x="28" y="29" width="2" height="1"/><rect x="32" y="29" width="1" height="1"/>
+      <rect x="8" y="30" width="2" height="1"/><rect x="12" y="30" width="1" height="1"/><rect x="14" y="30" width="1" height="1"/><rect x="17" y="30" width="1" height="1"/><rect x="19" y="30" width="2" height="1"/><rect x="23" y="30" width="1" height="1"/><rect x="25" y="30" width="2" height="1"/><rect x="29" y="30" width="1" height="1"/><rect x="31" y="30" width="2" height="1"/>
+      <rect x="11" y="31" width="1" height="1"/><rect x="13" y="31" width="2" height="1"/><rect x="16" y="31" width="2" height="1"/><rect x="20" y="31" width="1" height="1"/><rect x="22" y="31" width="2" height="1"/><rect x="26" y="31" width="1" height="1"/><rect x="28" y="31" width="2" height="1"/><rect x="31" y="31" width="1" height="1"/>
+      <rect x="8" y="32" width="1" height="1"/><rect x="10" y="32" width="2" height="1"/><rect x="14" y="32" width="2" height="1"/><rect x="17" y="32" width="1" height="1"/><rect x="19" y="32" width="2" height="1"/><rect x="23" y="32" width="2" height="1"/><rect x="27" y="32" width="2" height="1"/><rect x="30" y="32" width="1" height="1"/><rect x="32" y="32" width="1" height="1"/>
+    </g>
+    <rect x="14" y="14" width="5" height="5" fill="#fff"/>
+    <rect x="14.5" y="14.5" width="4" height="4" rx=".6" fill="#3B82F6"/>
+    <circle cx="15.6" cy="15.6" r=".5" fill="#FBBF24"/>
+    <path d="M14.7 18.4 L15.6 17.2 L16.4 18 L17.5 16.7 L18.4 18.4 Z" fill="#1E40AF"/>
+  </svg>`;
+}
 
 function renderTestStage(){
   const t = state.test;
@@ -2415,75 +2630,7 @@ function renderTestStage(){
           </button>
         </div>
         <div class="share-qr-wrap">
-          <div class="share-qr">
-            <!-- Decorative QR code: 33x33 grid with embedded centered logo -->
-            <svg width="240" height="240" viewBox="0 0 33 33" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
-              <rect width="33" height="33" fill="#fff"/>
-              <g fill="#000">
-                <!-- Top-left finder -->
-                <rect x="0"  y="0" width="7" height="7"/>
-                <rect x="1"  y="1" width="5" height="5" fill="#fff"/>
-                <rect x="2"  y="2" width="3" height="3"/>
-                <!-- Top-right finder -->
-                <rect x="26" y="0" width="7" height="7"/>
-                <rect x="27" y="1" width="5" height="5" fill="#fff"/>
-                <rect x="28" y="2" width="3" height="3"/>
-                <!-- Bottom-left finder -->
-                <rect x="0"  y="26" width="7" height="7"/>
-                <rect x="1"  y="27" width="5" height="5" fill="#fff"/>
-                <rect x="2"  y="28" width="3" height="3"/>
-                <!-- Timing patterns -->
-                <rect x="8"  y="6" width="1" height="1"/><rect x="10" y="6" width="1" height="1"/>
-                <rect x="12" y="6" width="1" height="1"/><rect x="14" y="6" width="1" height="1"/>
-                <rect x="16" y="6" width="1" height="1"/><rect x="18" y="6" width="1" height="1"/>
-                <rect x="20" y="6" width="1" height="1"/><rect x="22" y="6" width="1" height="1"/>
-                <rect x="24" y="6" width="1" height="1"/>
-                <rect x="6"  y="8" width="1" height="1"/><rect x="6"  y="10" width="1" height="1"/>
-                <rect x="6"  y="12" width="1" height="1"/><rect x="6"  y="14" width="1" height="1"/>
-                <rect x="6"  y="16" width="1" height="1"/><rect x="6"  y="18" width="1" height="1"/>
-                <rect x="6"  y="20" width="1" height="1"/><rect x="6"  y="22" width="1" height="1"/>
-                <rect x="6"  y="24" width="1" height="1"/>
-                <!-- Pseudo-random data pattern (decorative) -->
-                <rect x="8" y="0" width="1" height="1"/><rect x="10" y="0" width="2" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="2" height="1"/><rect x="19" y="0" width="1" height="1"/><rect x="22" y="0" width="2" height="1"/>
-                <rect x="9" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="14" y="1" width="2" height="1"/><rect x="18" y="1" width="1" height="1"/><rect x="21" y="1" width="2" height="1"/><rect x="24" y="1" width="1" height="1"/>
-                <rect x="8" y="2" width="2" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="15" y="2" width="1" height="1"/><rect x="17" y="2" width="1" height="1"/><rect x="20" y="2" width="1" height="1"/><rect x="23" y="2" width="2" height="1"/>
-                <rect x="10" y="3" width="1" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="15" y="3" width="2" height="1"/><rect x="19" y="3" width="2" height="1"/><rect x="22" y="3" width="1" height="1"/>
-                <rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="2" height="1"/><rect x="14" y="4" width="1" height="1"/><rect x="17" y="4" width="2" height="1"/><rect x="21" y="4" width="1" height="1"/><rect x="24" y="4" width="1" height="1"/>
-                <rect x="9" y="5" width="2" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="15" y="5" width="1" height="1"/><rect x="18" y="5" width="2" height="1"/><rect x="22" y="5" width="2" height="1"/>
-                <rect x="8" y="8" width="2" height="1"/><rect x="11" y="8" width="1" height="1"/><rect x="14" y="8" width="2" height="1"/><rect x="17" y="8" width="1" height="1"/><rect x="20" y="8" width="2" height="1"/><rect x="24" y="8" width="1" height="1"/>
-                <rect x="10" y="9" width="1" height="1"/><rect x="13" y="9" width="2" height="1"/><rect x="16" y="9" width="1" height="1"/><rect x="19" y="9" width="1" height="1"/><rect x="22" y="9" width="1" height="1"/><rect x="25" y="9" width="2" height="1"/>
-                <rect x="8" y="10" width="1" height="1"/><rect x="11" y="10" width="2" height="1"/><rect x="15" y="10" width="1" height="1"/><rect x="17" y="10" width="2" height="1"/><rect x="21" y="10" width="2" height="1"/><rect x="25" y="10" width="1" height="1"/>
-                <rect x="9" y="11" width="1" height="1"/><rect x="12" y="11" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/><rect x="16" y="11" width="2" height="1"/><rect x="20" y="11" width="1" height="1"/><rect x="23" y="11" width="1" height="1"/><rect x="26" y="11" width="2" height="1"/>
-                <rect x="8" y="12" width="2" height="1"/><rect x="13" y="12" width="2" height="1"/><rect x="18" y="12" width="1" height="1"/><rect x="21" y="12" width="1" height="1"/><rect x="24" y="12" width="2" height="1"/><rect x="28" y="12" width="1" height="1"/>
-                <rect x="11" y="13" width="1" height="1"/><rect x="15" y="13" width="1" height="1"/><rect x="17" y="13" width="1" height="1"/><rect x="19" y="13" width="2" height="1"/><rect x="23" y="13" width="2" height="1"/><rect x="27" y="13" width="1" height="1"/>
-                <rect x="8" y="14" width="1" height="1"/><rect x="10" y="14" width="2" height="1"/><rect x="14" y="14" width="1" height="1"/><rect x="16" y="14" width="1" height="1"/><rect x="20" y="14" width="1" height="1"/><rect x="22" y="14" width="1" height="1"/><rect x="25" y="14" width="2" height="1"/><rect x="29" y="14" width="1" height="1"/>
-                <rect x="9" y="15" width="1" height="1"/><rect x="12" y="15" width="1" height="1"/><rect x="15" y="15" width="2" height="1"/><rect x="18" y="15" width="1" height="1"/><rect x="21" y="15" width="2" height="1"/><rect x="26" y="15" width="1" height="1"/><rect x="28" y="15" width="2" height="1"/>
-                <rect x="8" y="16" width="2" height="1"/><rect x="13" y="16" width="2" height="1"/><rect x="17" y="16" width="1" height="1"/><rect x="20" y="16" width="1" height="1"/><rect x="23" y="16" width="1" height="1"/><rect x="25" y="16" width="1" height="1"/><rect x="27" y="16" width="2" height="1"/>
-                <rect x="10" y="17" width="1" height="1"/><rect x="14" y="17" width="1" height="1"/><rect x="16" y="17" width="1" height="1"/><rect x="19" y="17" width="2" height="1"/><rect x="22" y="17" width="2" height="1"/><rect x="26" y="17" width="2" height="1"/><rect x="30" y="17" width="1" height="1"/>
-                <rect x="8" y="18" width="1" height="1"/><rect x="11" y="18" width="2" height="1"/><rect x="15" y="18" width="1" height="1"/><rect x="17" y="18" width="2" height="1"/><rect x="21" y="18" width="1" height="1"/><rect x="24" y="18" width="2" height="1"/><rect x="28" y="18" width="1" height="1"/><rect x="31" y="18" width="1" height="1"/>
-                <rect x="9" y="19" width="2" height="1"/><rect x="13" y="19" width="1" height="1"/><rect x="16" y="19" width="2" height="1"/><rect x="20" y="19" width="2" height="1"/><rect x="25" y="19" width="1" height="1"/><rect x="27" y="19" width="1" height="1"/><rect x="30" y="19" width="2" height="1"/>
-                <rect x="8" y="20" width="2" height="1"/><rect x="12" y="20" width="1" height="1"/><rect x="14" y="20" width="2" height="1"/><rect x="18" y="20" width="1" height="1"/><rect x="22" y="20" width="1" height="1"/><rect x="24" y="20" width="1" height="1"/><rect x="26" y="20" width="2" height="1"/><rect x="29" y="20" width="1" height="1"/><rect x="32" y="20" width="1" height="1"/>
-                <rect x="11" y="21" width="1" height="1"/><rect x="13" y="21" width="2" height="1"/><rect x="17" y="21" width="1" height="1"/><rect x="19" y="21" width="2" height="1"/><rect x="23" y="21" width="2" height="1"/><rect x="28" y="21" width="2" height="1"/><rect x="31" y="21" width="1" height="1"/>
-                <rect x="8" y="22" width="1" height="1"/><rect x="10" y="22" width="1" height="1"/><rect x="13" y="22" width="1" height="1"/><rect x="15" y="22" width="2" height="1"/><rect x="18" y="22" width="2" height="1"/><rect x="22" y="22" width="1" height="1"/><rect x="25" y="22" width="2" height="1"/><rect x="29" y="22" width="2" height="1"/>
-                <rect x="9" y="23" width="1" height="1"/><rect x="11" y="23" width="2" height="1"/><rect x="14" y="23" width="1" height="1"/><rect x="17" y="23" width="1" height="1"/><rect x="20" y="23" width="1" height="1"/><rect x="22" y="23" width="2" height="1"/><rect x="26" y="23" width="1" height="1"/><rect x="28" y="23" width="2" height="1"/><rect x="31" y="23" width="1" height="1"/>
-                <rect x="8" y="24" width="2" height="1"/><rect x="12" y="24" width="2" height="1"/><rect x="15" y="24" width="1" height="1"/><rect x="18" y="24" width="2" height="1"/><rect x="21" y="24" width="1" height="1"/><rect x="25" y="24" width="2" height="1"/><rect x="29" y="24" width="1" height="1"/><rect x="32" y="24" width="1" height="1"/>
-                <rect x="8" y="25" width="1" height="1"/><rect x="10" y="25" width="1" height="1"/><rect x="12" y="25" width="1" height="1"/><rect x="14" y="25" width="2" height="1"/><rect x="17" y="25" width="2" height="1"/><rect x="20" y="25" width="2" height="1"/><rect x="24" y="25" width="1" height="1"/><rect x="26" y="25" width="2" height="1"/><rect x="30" y="25" width="2" height="1"/>
-                <!-- Bottom rows -->
-                <rect x="8" y="26" width="2" height="1"/><rect x="11" y="26" width="2" height="1"/><rect x="14" y="26" width="1" height="1"/><rect x="16" y="26" width="2" height="1"/><rect x="19" y="26" width="2" height="1"/><rect x="23" y="26" width="2" height="1"/><rect x="27" y="26" width="1" height="1"/><rect x="29" y="26" width="2" height="1"/><rect x="32" y="26" width="1" height="1"/>
-                <rect x="9" y="27" width="1" height="1"/><rect x="13" y="27" width="2" height="1"/><rect x="16" y="27" width="1" height="1"/><rect x="18" y="27" width="1" height="1"/><rect x="22" y="27" width="2" height="1"/><rect x="25" y="27" width="1" height="1"/><rect x="27" y="27" width="2" height="1"/><rect x="31" y="27" width="1" height="1"/>
-                <rect x="8" y="28" width="1" height="1"/><rect x="11" y="28" width="2" height="1"/><rect x="14" y="28" width="1" height="1"/><rect x="17" y="28" width="2" height="1"/><rect x="20" y="28" width="1" height="1"/><rect x="22" y="28" width="2" height="1"/><rect x="26" y="28" width="2" height="1"/><rect x="30" y="28" width="1" height="1"/>
-                <rect x="9" y="29" width="2" height="1"/><rect x="13" y="29" width="1" height="1"/><rect x="15" y="29" width="2" height="1"/><rect x="18" y="29" width="2" height="1"/><rect x="21" y="29" width="1" height="1"/><rect x="24" y="29" width="2" height="1"/><rect x="28" y="29" width="2" height="1"/><rect x="32" y="29" width="1" height="1"/>
-                <rect x="8" y="30" width="2" height="1"/><rect x="12" y="30" width="1" height="1"/><rect x="14" y="30" width="1" height="1"/><rect x="17" y="30" width="1" height="1"/><rect x="19" y="30" width="2" height="1"/><rect x="23" y="30" width="1" height="1"/><rect x="25" y="30" width="2" height="1"/><rect x="29" y="30" width="1" height="1"/><rect x="31" y="30" width="2" height="1"/>
-                <rect x="11" y="31" width="1" height="1"/><rect x="13" y="31" width="2" height="1"/><rect x="16" y="31" width="2" height="1"/><rect x="20" y="31" width="1" height="1"/><rect x="22" y="31" width="2" height="1"/><rect x="26" y="31" width="1" height="1"/><rect x="28" y="31" width="2" height="1"/><rect x="31" y="31" width="1" height="1"/>
-                <rect x="8" y="32" width="1" height="1"/><rect x="10" y="32" width="2" height="1"/><rect x="14" y="32" width="2" height="1"/><rect x="17" y="32" width="1" height="1"/><rect x="19" y="32" width="2" height="1"/><rect x="23" y="32" width="2" height="1"/><rect x="27" y="32" width="2" height="1"/><rect x="30" y="32" width="1" height="1"/><rect x="32" y="32" width="1" height="1"/>
-              </g>
-              <!-- Embedded centered app icon (cleared whitespace background) -->
-              <rect x="14" y="14" width="5" height="5" fill="#fff"/>
-              <rect x="14.5" y="14.5" width="4" height="4" rx=".6" fill="#3B82F6"/>
-              <circle cx="15.6" cy="15.6" r=".5" fill="#FBBF24"/>
-              <path d="M14.7 18.4 L15.6 17.2 L16.4 18 L17.5 16.7 L18.4 18.4 Z" fill="#1E40AF"/>
-            </svg>
-          </div>
+          <div class="share-qr">${renderQRCode(240)}</div>
           <p class="share-bookmark-note">Don't forget to bookmark your app once you scan the QR code on your phone to add it to your phone's home-screen</p>
         </div>
       </section>
@@ -2671,6 +2818,9 @@ function renderLaunchView(){
             </span>
           </div>
         </div>
+        <div class="launch-app-qr" title="Scan to open this app">
+          ${renderQRCode(80)}
+        </div>
       </div>
 
       <h4 class="launch-section-label">App Description</h4>
@@ -2741,6 +2891,12 @@ function renderLaunchView(){
           <li>Start with a real person and a real problem — exciting!</li>
           <li>Practice saying it out loud until it feels natural!</li>
         </ul>
+      </div>
+
+      <div class="pitch-block">
+        <h3>Your Presentation Notes</h3>
+        <textarea class="pitch-notes-textarea" placeholder="Add your notes here…" data-launch-input="presentationNotes">${escapeHtml(l.presentationNotes || '')}</textarea>
+        <button class="pitch-present-btn" type="button">Click to Present Your App</button>
       </div>
     </div>
   `;
